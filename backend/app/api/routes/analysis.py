@@ -3,6 +3,7 @@ import os
 from pathlib import Path
 from fastapi import APIRouter, UploadFile, File, BackgroundTasks, HTTPException
 from app.schemas.jobs import JobCreateResponse, SourceType
+from app.schemas.analysis import YouTubeAnalyzeRequest
 from app.services.job_store import job_store
 from app.services.orchestrator import analysis_orchestrator
 from app.core.config import settings
@@ -57,11 +58,37 @@ async def analyze_upload(
         message="Video accepted. Analysis started."
     )
 
-@router.post("/youtube")
-async def analyze_youtube():
-    return {
-        "message": "Analysis endpoint scaffolded. Job orchestration will be implemented in a later branch."
-    }
+@router.post("/youtube", response_model=JobCreateResponse)
+async def analyze_youtube(
+    request: YouTubeAnalyzeRequest,
+    background_tasks: BackgroundTasks
+):
+    # 1. Basic URL Validation
+    url = request.url.lower()
+    youtube_domains = ["youtube.com", "youtu.be"]
+    
+    is_valid = any(domain in url for domain in youtube_domains)
+    if not is_valid:
+        raise HTTPException(
+            status_code=400, 
+            detail="Invalid YouTube URL. Please provide a link from youtube.com or youtu.be"
+        )
+
+    # 2. Create Job
+    job = job_store.create_job(
+        source_type=SourceType.YOUTUBE,
+        source_name=request.url,
+        message="YouTube URL accepted. Analysis starting..."
+    )
+
+    # 3. Start Background Analysis
+    background_tasks.add_task(analysis_orchestrator.run_demo_analysis, job.job_id)
+
+    return JobCreateResponse(
+        job_id=job.job_id,
+        status=job.status,
+        message="YouTube URL accepted. Analysis started."
+    )
 
 @router.get("/{job_id}")
 async def get_analysis_result(job_id: str):

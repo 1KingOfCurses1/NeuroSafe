@@ -63,6 +63,14 @@ uvicorn app.main:app --reload
   echo "fake video content" > test.mp4
   curl.exe -X POST http://localhost:8000/api/analyze/upload -F "file=@test.mp4"
   ```
+- **YouTube Test:**
+  ```powershell
+  curl.exe -X POST http://localhost:8000/api/analyze/youtube -H "Content-Type: application/json" -d "{\"url\":\"https://www.youtube.com/watch?v=dQw4w9WgXcQ\"}"
+  ```
+- **Invalid URL Test:**
+  ```powershell
+  curl.exe -X POST http://localhost:8000/api/analyze/youtube -H "Content-Type: application/json" -d "{\"url\":\"https://example.com/video\"}"
+  ```
 
 ## Note
 This is an initial scaffold. Model integration, job orchestration, Gemini integration, yt-dlp, and danger scoring will be added in later branches.
