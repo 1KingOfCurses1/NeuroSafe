@@ -58,6 +58,11 @@ uvicorn app.main:app --reload
   ```bash
   python -c "import asyncio; from app.services.job_store import job_store; from app.schemas.jobs import SourceType; from app.services.orchestrator import analysis_orchestrator; j=job_store.create_job(SourceType.DEMO, 'demo-video.mp4'); result=asyncio.run(analysis_orchestrator.run_demo_analysis(j.job_id)); print(result.job_id, result.status, result.danger_score); print(job_store.get_job(j.job_id).status, job_store.get_job(j.job_id).progress); print(result.brain_visualization.frames[0].timestamp, result.roi_timeseries.timestamps[0])"
   ```
+- **Upload Test (Windows):**
+  ```powershell
+  echo "fake video content" > test.mp4
+  curl.exe -X POST http://localhost:8000/api/analyze/upload -F "file=@test.mp4"
+  ```
 
 ## Note
 This is an initial scaffold. Model integration, job orchestration, Gemini integration, yt-dlp, and danger scoring will be added in later branches.
