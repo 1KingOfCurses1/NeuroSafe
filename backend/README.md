@@ -79,6 +79,10 @@ uvicorn app.main:app --reload
      curl.exe http://localhost:8000/api/analyze/{job_id}
      ```
   4. After ~1-2 seconds, the `status` will be `completed` and the `result` field will be populated.
+- **Model Adapter Interface Test:**
+  ```bash
+  python -c "from app.adapters import BaseModelAdapter, RawModelOutput; output=RawModelOutput(duration_seconds=10.0, timestamps=[0.0, 5.0, 10.0], roi_activations={'V1':[0.1,0.5,0.2],'V2':[0.1,0.4,0.2],'V3':[0.1,0.3,0.2],'V4':[0.1,0.2,0.2],'MT+':[0.1,0.6,0.2]}, model_name='test-model', model_provider='demo'); print(output.model_name, output.roi_activations['MT+'][1])"
+  ```
 
 ## Note
 This is an initial scaffold. Model integration, job orchestration, Gemini integration, yt-dlp, and danger scoring will be added in later branches.
