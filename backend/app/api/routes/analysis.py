@@ -1,16 +1,54 @@
 import shutil
 import os
+import logging
 from pathlib import Path
 from fastapi import APIRouter, UploadFile, File, BackgroundTasks, HTTPException
-from app.schemas.jobs import JobCreateResponse, SourceType, JobStatusResponse
+from app.schemas.jobs import JobCreateResponse, SourceType, JobStatusResponse, JobStatus
 from app.schemas.analysis import YouTubeAnalyzeRequest
 from app.services.job_store import job_store
 from app.services.orchestrator import analysis_orchestrator
+from app.services.youtube_downloader import youtube_downloader_service
 from app.core.config import settings
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 ALLOWED_EXTENSIONS = {".mp4", ".mov", ".avi", ".mkv", ".webm"}
+
+async def _run_youtube_analysis_task(job_id: str, url: str):
+    """
+    Background task to download YouTube video and then run analysis.
+    """
+    try:
+        # 1. Update status: Downloading
+        job_store.update_job(
+            job_id, 
+            status=JobStatus.PROCESSING, 
+            progress=5, 
+            message="Downloading YouTube video..."
+        )
+        
+        # 2. Attempt Download
+        try:
+            video_path = youtube_downloader_service.download(url, job_id)
+            job_store.update_job(
+                job_id, 
+                message=f"Download complete: {os.path.basename(video_path)}. Starting analysis..."
+            )
+        except Exception as download_error:
+            logger.warning(f"YouTube download failed for job {job_id}: {download_error}. Falling back to demo mode.")
+            job_store.update_job(
+                job_id, 
+                message="YouTube download failed. Proceeding with demo analysis fallback..."
+            )
+            # We continue anyway to keep the hackathon demo resilient
+
+        # 3. Run Analysis Orchestrator
+        await analysis_orchestrator.run_demo_analysis(job_id)
+
+    except Exception as e:
+        logger.error(f"Background task failed for job {job_id}: {e}")
+        job_store.fail_job(job_id, error=str(e), message="Background analysis failed")
 
 @router.post("/upload", response_model=JobCreateResponse)
 async def analyze_upload(
@@ -78,11 +116,11 @@ async def analyze_youtube(
     job = job_store.create_job(
         source_type=SourceType.YOUTUBE,
         source_name=request.url,
-        message="YouTube URL accepted. Analysis starting..."
+        message="YouTube URL accepted. Queuing download..."
     )
 
-    # 3. Start Background Analysis
-    background_tasks.add_task(analysis_orchestrator.run_demo_analysis, job.job_id)
+    # 3. Start Background Download & Analysis
+    background_tasks.add_task(_run_youtube_analysis_task, job.job_id, request.url)
 
     return JobCreateResponse(
         job_id=job.job_id,
