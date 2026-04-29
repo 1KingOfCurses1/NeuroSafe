@@ -20,5 +20,8 @@ NeuroSafe is built on a modular integration layer that connects deep learning mo
 ## Getting Started
 To set up the backend development environment, please refer to the detailed instructions in the **[Backend README](backend/README.md)**.
 
+## Deployment
+The backend is prepared for deployment on **DigitalOcean** via Docker or direct Python execution. Configuration examples for production environments can be found in the `backend/` directory.
+
 ---
 *NeuroSafe is an accessibility tool designed for creators and is not intended for medical diagnosis.*
