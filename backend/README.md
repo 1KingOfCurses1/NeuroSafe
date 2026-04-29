@@ -99,6 +99,10 @@ uvicorn app.main:app --reload
   ```bash
   python -c "import asyncio; from app.adapters import demo_model_adapter; from app.services.danger_scoring import danger_scoring_service; from app.services.result_formatter import result_formatter; output=asyncio.run(demo_model_adapter.analyze_video('demo.mp4')); score, summary, segments=danger_scoring_service.score_model_output(output); result=result_formatter.format_analysis_result('job_test', output, score, summary, segments); print(result.job_id, result.status, result.danger_score); print(result.roi_timeseries.timestamps[0], result.brain_visualization.frames[0].timestamp); print(result.roi_timeseries.MT_plus[0], result.brain_visualization.frames[0].roi_activations['MT+']); print(result.gemini_report.headline)"
   ```
+- **Gemini Report Service Test (Fallback Mode):**
+  ```bash
+  python -c "import asyncio; from app.schemas.analysis import AnalysisSummary, DangerSegment, VideoMetadata; from app.services.gemini_service import gemini_report_service; summary=AnalysisSummary(severity='high', segments_detected=1, total_danger_duration_seconds=3.0); seg=[DangerSegment(start_time=14.0,end_time=17.0,peak_time=15.5,roi='V1',activation_level=3.1,threshold=2.0,severity='critical',reason='Activation exceeded threshold')]; video=VideoMetadata(filename='demo.mp4',duration_seconds=30.0,fps=30.0,resolution='1920x1080'); report=asyncio.run(gemini_report_service.generate_report(87, summary, seg, video)); print(report.headline); print(report.findings[0]); print(report.recommended_actions[0])"
+  ```
 - **WebSocket Real-time Progress Test:**
   1. Start the backend: `python -m uvicorn app.main:app --reload`
   2. In a new terminal, create a job and copy the `job_id`:
