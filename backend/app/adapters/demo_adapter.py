@@ -33,10 +33,32 @@ class DemoModelAdapter(BaseModelAdapter):
             "MT+": self._generate_activations(timestamps, spike_centers=[15.5, 24.0], peak_mult=3.0)
         }
 
+        # Generate dummy vertex activations for 3D visualization
+        # We need 20484 vertices per timestep (10242 per hemisphere)
+        vertex_activations = []
+        for i in range(len(timestamps)):
+            # Create an array of 20484 zeros
+            verts = [0.0] * 20484
+            # Map V1 activation to some arbitrary vertices
+            v1_val = roi_activations["V1"][i]
+            mt_val = roi_activations["MT+"][i]
+            # Just fill a block of vertices with these values so they light up
+            for j in range(1000, 2000):
+                verts[j] = v1_val
+            for j in range(5000, 6000):
+                verts[j] = mt_val
+            # Right hemisphere as well
+            for j in range(11242, 12242):
+                verts[j] = v1_val
+            for j in range(15242, 16242):
+                verts[j] = mt_val
+            vertex_activations.append(verts)
+
         output = RawModelOutput(
             duration_seconds=duration,
             timestamps=timestamps,
             roi_activations=roi_activations,
+            vertex_activations=vertex_activations,
             model_name=self.model_name,
             model_provider=self.provider_name,
             metadata={

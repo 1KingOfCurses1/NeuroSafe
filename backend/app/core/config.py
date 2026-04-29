@@ -11,10 +11,13 @@ logger = logging.getLogger(__name__)
 class Settings(BaseSettings):
     APP_ENV: str = "development"
     
-    # Mode Configuration: "demo" or "huggingface"
+    # Mode Configuration: "demo", "tribe_v2", or "huggingface"
     MODEL_PROVIDER: str = "demo"
-    
-    # External API Keys (Optional in demo mode)
+
+    # TRIBE v2 settings (used when MODEL_PROVIDER=tribe_v2)
+    TRIBE_MODEL_ID: str = "facebook/tribev2"
+
+    # External API Keys (optional in demo mode)
     HF_API_URL: str = ""
     HF_API_TOKEN: str = ""
     GEMINI_API_KEY: str = ""
@@ -41,9 +44,8 @@ class Settings(BaseSettings):
     @field_validator("MODEL_PROVIDER", mode="before")
     @classmethod
     def validate_provider(cls, v: str) -> str:
-        allowed = ["demo", "huggingface"]
+        allowed = ["demo", "tribe_v2", "huggingface"]
         if v.lower() not in allowed:
-            # We don't raise error, we fallback to demo for reliability
             return "demo"
         return v.lower()
 
@@ -52,6 +54,10 @@ class Settings(BaseSettings):
     @property
     def is_demo_mode(self) -> bool:
         return self.MODEL_PROVIDER == "demo"
+
+    @property
+    def is_tribe_mode(self) -> bool:
+        return self.MODEL_PROVIDER == "tribe_v2"
 
     @property
     def is_huggingface_mode(self) -> bool:
@@ -65,6 +71,15 @@ class Settings(BaseSettings):
         warnings = []
         
         # 1. Check Model Provider
+        if self.is_tribe_mode:
+            from importlib.util import find_spec
+            has_tribe_pkg = find_spec("tribe_v2") is not None
+            if not has_tribe_pkg and (not self.HF_API_URL or not self.HF_API_TOKEN):
+                warnings.append(
+                    "MODEL_PROVIDER=tribe_v2 but neither the tribe_v2 package is installed "
+                    "nor HF_API_URL/HF_API_TOKEN are configured. "
+                    "Install tribe-v2 or set HF endpoint credentials."
+                )
         if self.is_huggingface_mode:
             if not self.HF_API_URL or not self.HF_API_TOKEN:
                 warnings.append("MODEL_PROVIDER is set to 'huggingface' but HF_API_URL or HF_API_TOKEN is missing.")

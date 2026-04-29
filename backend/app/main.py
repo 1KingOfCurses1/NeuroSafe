@@ -97,9 +97,15 @@ async def generic_exception_handler(request: Request, exc: Exception):
 
 # --- Routes ---
 
+from fastapi.staticfiles import StaticFiles
+
+import os
+os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
+app.mount("/video", StaticFiles(directory=settings.UPLOAD_DIR), name="video")
+
 app.include_router(health.router, tags=["Health"])
 app.include_router(analysis.router, prefix="/api/analyze", tags=["Analysis"])
-app.include_router(websocket.router, tags=["WebSocket"])
+app.include_router(websocket.router, prefix="/ws/analyze", tags=["WebSocket"])
 
 @app.get("/")
 async def root():

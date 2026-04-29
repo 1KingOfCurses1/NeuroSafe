@@ -10,8 +10,15 @@ class RawModelOutput(BaseModel):
     duration_seconds: float
     timestamps: List[float]
     roi_activations: Dict[str, List[float]] = Field(
-        ..., 
-        description="Dictionary mapping ROI names (V1, V2, V3, V4, MT+) to activation lists."
+        ...,
+        description="Per-ROI scalar timeseries (V1, V2, V3, V4, MT+) aligned with timestamps."
+    )
+    # Full per-vertex activation tensor stored as a nested list (n_timesteps × n_vertices).
+    # Populated by TRIBEv2Adapter only; None for demo/stub adapters.
+    # BrainRenderer converts this into 3D surface images.
+    vertex_activations: Optional[List[List[float]]] = Field(
+        default=None,
+        description="(n_timesteps, n_vertices) cortical activation tensor from TRIBE v2."
     )
     model_name: str
     model_provider: str

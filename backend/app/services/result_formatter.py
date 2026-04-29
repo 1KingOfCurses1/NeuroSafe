@@ -1,16 +1,18 @@
 import logging
+import numpy as np
 from typing import List, Optional, Dict
 from app.adapters.base import RawModelOutput
 from app.schemas.jobs import JobStatus
 from app.schemas.analysis import (
-    AnalysisResult, 
-    VideoMetadata, 
-    AnalysisSummary, 
-    DangerSegment, 
-    RoiTimeSeries
+    AnalysisResult,
+    VideoMetadata,
+    AnalysisSummary,
+    DangerSegment,
+    RoiTimeSeries,
 )
 from app.schemas.reports import GeminiReport
 from app.schemas.visualization import BrainFrame, BrainVisualizationPayload
+from app.services.brain_renderer import brain_renderer
 
 logger = logging.getLogger(__name__)
 
@@ -63,39 +65,54 @@ class ResultFormatter:
             report = self._generate_fallback_report(danger_score, danger_segments)
 
         # 4. Brain Visualization Payload
+        # Build per-frame roi_activations lookup first (needed for all paths)
+        roi_frame_lookup: List[Dict[str, float]] = []
+        for i, t in enumerate(model_output.timestamps):
+            frame_act = {roi: vals[i] for roi, vals in model_output.roi_activations.items()}
+            for k in ["V1", "V2", "V3", "V4", "MT+"]:
+                frame_act.setdefault(k, 0.0)
+            roi_frame_lookup.append(frame_act)
+
+        # If TRIBE v2 provided the full vertex tensor, render real 3D brain images.
+        # Otherwise (demo mode) image_b64 stays None on every frame.
+        rendered_frames: Dict[float, str] = {}
+        if model_output.vertex_activations is not None:
+            vertex_array = np.array(model_output.vertex_activations, dtype=np.float32)
+            danger_ts = [s.peak_time for s in danger_segments]
+            rendered = brain_renderer.render_series(
+                all_vertex_activations=vertex_array,
+                timestamps=model_output.timestamps,
+                danger_timestamps=danger_ts,
+            )
+            rendered_frames = {r["timestamp"]: r["image_b64"] for r in rendered}
+
         brain_frames = []
         for i, t in enumerate(model_output.timestamps):
-            frame_activations = {
-                roi: vals[i] for roi, vals in model_output.roi_activations.items()
-            }
-            # Ensure required keys exist for visualization
-            for k in ["V1", "V2", "V3", "V4", "MT+"]:
-                if k not in frame_activations:
-                    frame_activations[k] = 0.0
-            
-            max_act = max(frame_activations.values()) if frame_activations else 0.0
-            
-            if max_act < 1.5:
-                danger_level = "low"
-            elif max_act < 2.0:
-                danger_level = "medium"
-            elif max_act < 2.8:
-                danger_level = "high"
+            frame_act = roi_frame_lookup[i]
+            max_act = max(frame_act.values()) if frame_act else 0.0
+
+            if max_act >= 2.8:
+                dlevel = "critical"
+            elif max_act >= 2.0:
+                dlevel = "high"
+            elif max_act >= 1.5:
+                dlevel = "medium"
             else:
-                danger_level = "critical"
+                dlevel = "low"
 
             brain_frames.append(BrainFrame(
                 timestamp=t,
-                roi_activations=frame_activations,
+                roi_activations=frame_act,
                 max_activation=round(max_act, 3),
-                danger_level=danger_level
+                danger_level=dlevel,
+                image_b64=rendered_frames.get(t),
             ))
 
         visualization = BrainVisualizationPayload(
             job_id=job_id,
             frames=brain_frames,
-            color_map="deep-blue-yellow-red",
-            timestamp_unit="seconds"
+            color_map="hot",
+            timestamp_unit="seconds",
         )
 
         result = AnalysisResult(

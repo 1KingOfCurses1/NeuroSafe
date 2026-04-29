@@ -8,6 +8,7 @@ class BrainFrame(BaseModel):
     roi_activations: Dict[str, float]
     max_activation: float
     danger_level: str
+    image_b64: Optional[str] = None  # base64 PNG from nilearn; None in demo mode
 
 class BrainVisualizationPayload(BaseModel):
     job_id: str

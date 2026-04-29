@@ -2,10 +2,11 @@ import asyncio
 import logging
 import os
 from typing import Optional
+from app.core.config import settings
 from app.services.job_store import job_store
 from app.schemas.jobs import JobStatus
 from app.schemas.analysis import AnalysisResult
-from app.adapters import demo_model_adapter
+from app.adapters import demo_model_adapter, tribe_v2_adapter
 from app.services.danger_scoring import danger_scoring_service
 from app.services.result_formatter import result_formatter
 from app.services.gemini_service import gemini_report_service
@@ -43,15 +44,21 @@ class AnalysisOrchestrator:
             await asyncio.sleep(0.5) # Simulate slight delay for UI
 
             # 2. Stage: Running Model Inference (40%)
+            if settings.is_tribe_mode:
+                inference_label = "TRIBE v2 cortical encoding model"
+                adapter = tribe_v2_adapter
+            else:
+                inference_label = "demo deterministic adapter"
+                adapter = demo_model_adapter
+
             job_store.update_job(
-                job_id, 
-                status=JobStatus.RUNNING_MODEL, 
-                progress=40, 
-                message="Running TRIBE model inference on visual cortex (V1-V4, MT+)..."
+                job_id,
+                status=JobStatus.RUNNING_MODEL,
+                progress=40,
+                message=f"Running {inference_label} on visual cortex (V1-V4, MT+)..."
             )
-            # demo_model_adapter always returns deterministic data
-            logger.info(f"Job {job_id}: Running model inference...")
-            raw_output = await demo_model_adapter.analyze_video(path_to_extract)
+            logger.info(f"Job {job_id}: Running inference via {adapter.provider_name}...")
+            raw_output = await adapter.analyze_video(path_to_extract, job_id=job_id)
             logger.info(f"Job {job_id}: Model inference complete.")
             await asyncio.sleep(0.5)
 
