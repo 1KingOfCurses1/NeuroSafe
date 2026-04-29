@@ -1,200 +1,120 @@
 # NeuroSafe Backend
 
-## Project Summary
-NeuroSafe is a web application that screens videos and YouTube URLs for photosensitive epilepsy seizure triggers.
+The NeuroSafe backend is a FastAPI integration layer designed to orchestrate video analysis, process machine learning model outputs, and provide real-time content-safety feedback.
 
-## Backend Role/Scope
-The backend is responsible for:
-- Creating analysis jobs.
-- Extracting/receiving video metadata.
-- Orchestrating model inference via model adapters.
-- Converting model data into danger segments.
-- Generating clinical reports using Gemini.
-- Providing a stable REST/WebSocket API for the React frontend.
+## Project Scope (Dev 3)
+- **Job Orchestration**: Chaining metadata extraction, model inference, and scoring.
+- **Service Integration**: Wiring Gemini API, yt-dlp, and ffprobe with robust fallbacks.
+- **API Design**: Standardized REST and WebSocket endpoints for frontend consumption.
+- **Demo Reliability**: Ensuring a "zero-config" demo experience for hackathon judges.
 
-## Setup Instructions
+## Quick Start (Windows Friendly)
 
-### 1. Create a Virtual Environment
-```bash
-cd backend
-python -m venv .venv
-```
+1. **Setup Environment**:
+   ```powershell
+   cd backend
+   py -m venv .venv
+   .venv\Scripts\activate
+   ```
+   *(If `py` is not found, use `python`)*
 
-### 2. Activate the Virtual Environment
-- **Windows:**
-  ```powershell
-  .venv\Scripts\activate
-  ```
-- **macOS/Linux:**
-  ```bash
-  source .venv/bin/activate
-  ```
+2. **Install Dependencies**:
+   ```powershell
+   pip install -r requirements.txt
+   ```
 
-### 3. Install Dependencies
-```bash
-pip install -r requirements.txt
-```
+3. **Configure**:
+   ```powershell
+   cp .env.example .env
+   ```
 
-### 4. Environment Configuration
-Copy `.env.example` to `.env` and fill in the required values.
-```bash
-cp .env.example .env
-```
-Default `MODEL_PROVIDER=demo` is used for development/testing without real model access.
+4. **Run Server**:
+   ```powershell
+   python -m uvicorn app.main:app --reload
+   ```
+   Backend active at: [http://localhost:8000](http://localhost:8000)
+
+## Environment Variables
+Defined in `.env.example`:
+- `APP_ENV`: `development` or `production`.
+- `MODEL_PROVIDER`: `demo` (default) or `huggingface`.
+- `HF_API_URL` / `HF_API_TOKEN`: Required only for Hugging Face mode.
+- `GEMINI_API_KEY`: Optional. If missing, a deterministic local generator is used.
+- `UPLOAD_DIR`: Local path for video storage (default: `./uploads`).
+- `ALLOWED_ORIGINS`: CORS configuration for the React frontend.
 
 ## Demo Mode
-By default, the backend runs in **Demo Mode** (`MODEL_PROVIDER=demo`). This mode is designed for hackathon presentations and local testing.
+NeuroSafe defaults to **Demo Mode** (`MODEL_PROVIDER=demo`).
+- **No API Keys Required**: Works without Gemini or Hugging Face tokens.
+- **Deterministic Results**: Returns realistic, synchronized activation data for MT+, V1, V2, V3, and V4 regions.
+- **Fallback Support**: Gracefully handles missing `ffprobe` or failed YouTube downloads by using safe defaults.
 
-### Key Features
-- **Zero Configuration**: Works out of the box without Hugging Face or Gemini API keys.
-- **Deterministic Data**: Uses realistic activation patterns for V1, V2, V3, V4, and MT+ regions.
-- **Full Pipeline Support**: Supports both direct MP4 uploads and YouTube URL submissions.
-- **Robust Fallbacks**: 
-    - If `ffprobe` is missing, defaults to 1080p/30fps metadata.
-    - If `yt-dlp` fails, falls back to demo analysis data.
-    - If `GEMINI_API_KEY` is missing, uses a local rule-based report generator.
+## API Endpoints
 
-### Verification Commands
-Check configuration:
-```bash
-curl http://localhost:8000/api/analyze/demo/config
-```
+### Core Analysis
+- **`POST /api/analyze/upload`**: Upload an MP4/MOV file for analysis.
+- **`POST /api/analyze/youtube`**: Submit a YouTube URL.
+- **`GET /api/analyze/{job_id}`**: Poll for job status and final `AnalysisResult`.
+- **`GET /api/analyze/demo/config`**: Check active demo features and provider state.
 
-Run a YouTube test:
-```bash
-curl.exe -X POST http://localhost:8000/api/analyze/youtube -H "Content-Type: application/json" -d "{\"url\":\"https://www.youtube.com/watch?v=dQw4w9WgXcQ\"}"
-```
+### Utilities
+- **`GET /health`**: Backend health check.
+- **`GET /`**: Service info and docs link.
 
-Poll for results (replace `JOB_ID`):
-```bash
-curl http://localhost:8000/api/analyze/JOB_ID
-```
-
-## Running the Backend
-```bash
-uvicorn app.main:app --reload
-```
-
-## Testing
-- **Health Check:** `curl http://localhost:8000/health`
-- **Interactive Docs:** [http://localhost:8000/docs](http://localhost:8000/docs)
-- **Job Store Test:**
-  ```bash
-  python -c "from app.services.job_store import job_store; from app.schemas.jobs import SourceType, JobStatus; j=job_store.create_job(SourceType.DEMO, 'demo-video.mp4'); print(j.job_id, j.status, j.progress); job_store.update_job(j.job_id, status=JobStatus.PROCESSING, progress=50, message='Processing'); print(job_store.get_job(j.job_id).status, job_store.get_job(j.job_id).progress); print(len(job_store.list_jobs()))"
-  ```
-- **Orchestrator Test:**
-  ```bash
-  python -c "import asyncio; from app.services.job_store import job_store; from app.schemas.jobs import SourceType; from app.services.orchestrator import analysis_orchestrator; j=job_store.create_job(SourceType.DEMO, 'demo-video.mp4'); result=asyncio.run(analysis_orchestrator.run_demo_analysis(j.job_id)); print(result.job_id, result.status, result.danger_score); print(job_store.get_job(j.job_id).status, job_store.get_job(j.job_id).progress); print(result.brain_visualization.frames[0].timestamp, result.roi_timeseries.timestamps[0])"
-  ```
-- **Upload Test (Windows):**
-  ```powershell
-  echo "fake video content" > test.mp4
-  curl.exe -X POST http://localhost:8000/api/analyze/upload -F "file=@test.mp4"
-  ```
-- **YouTube Test:**
-  ```powershell
-  curl.exe -X POST http://localhost:8000/api/analyze/youtube -H "Content-Type: application/json" -d "{\"url\":\"https://www.youtube.com/watch?v=dQw4w9WgXcQ\"}"
-  ```
-- **Invalid URL Test:**
-  ```powershell
-  curl.exe -X POST http://localhost:8000/api/analyze/youtube -H "Content-Type: application/json" -d "{\"url\":\"https://example.com/video\"}"
-  ```
-- **Polling Status & Results:**
-  1. Submit a job (Upload or YouTube).
-  2. Copy the `job_id` from the response.
-  3. Poll the status:
-     ```powershell
-     curl.exe http://localhost:8000/api/analyze/{job_id}
-     ```
-  4. After ~1-2 seconds, the `status` will be `completed` and the `result` field will be populated.
-- **Model Adapter Interface Test:**
-  ```bash
-  python -c "from app.adapters import BaseModelAdapter, RawModelOutput; output=RawModelOutput(duration_seconds=10.0, timestamps=[0.0, 5.0, 10.0], roi_activations={'V1':[0.1,0.5,0.2],'V2':[0.1,0.4,0.2],'V3':[0.1,0.3,0.2],'V4':[0.1,0.2,0.2],'MT+':[0.1,0.6,0.2]}, model_name='test-model', model_provider='demo'); print(output.model_name, output.roi_activations['MT+'][1])"
-  ```
-- **Demo Model Adapter Test:**
-  ```bash
-  python -c "import asyncio; from app.adapters import demo_model_adapter; output=asyncio.run(demo_model_adapter.analyze_video('demo.mp4')); print(output.model_name, output.model_provider, output.duration_seconds); print(len(output.timestamps), len(output.roi_activations['V1'])); print(max(output.roi_activations['V1']), max(output.roi_activations['MT+']))"
-  ```
-- **Hugging Face Adapter Stub Test:**
-  ```bash
-  python -c "from app.adapters import huggingface_model_adapter; print(huggingface_model_adapter.provider_name, huggingface_model_adapter.model_name)"
-  ```
-- **Danger Scoring Service Test:**
-  ```bash
-  python -c "import asyncio; from app.adapters import demo_model_adapter; from app.services.danger_scoring import danger_scoring_service; output=asyncio.run(demo_model_adapter.analyze_video('demo.mp4')); score, summary, segments=danger_scoring_service.score_model_output(output); print(f'Score: {score}', f'Severity: {summary.severity}', f'Segments: {summary.segments_detected}'); print(f'First Segment: {segments[0].roi} at {segments[0].start_time}s, Peak: {segments[0].activation_level}')"
-  ```
-- **Result Formatter Service Test:**
-  ```bash
-  python -c "import asyncio; from app.adapters import demo_model_adapter; from app.services.danger_scoring import danger_scoring_service; from app.services.result_formatter import result_formatter; output=asyncio.run(demo_model_adapter.analyze_video('demo.mp4')); score, summary, segments=danger_scoring_service.score_model_output(output); result=result_formatter.format_analysis_result('job_test', output, score, summary, segments); print(result.job_id, result.status, result.danger_score); print(result.roi_timeseries.timestamps[0], result.brain_visualization.frames[0].timestamp); print(result.roi_timeseries.MT_plus[0], result.brain_visualization.frames[0].roi_activations['MT+']); print(result.gemini_report.headline)"
-  ```
-- **Gemini Report Service Test (Fallback Mode):**
-  ```bash
-  python -c "import asyncio; from app.schemas.analysis import AnalysisSummary, DangerSegment, VideoMetadata; from app.services.gemini_service import gemini_report_service; summary=AnalysisSummary(severity='high', segments_detected=1, total_danger_duration_seconds=3.0); seg=[DangerSegment(start_time=14.0,end_time=17.0,peak_time=15.5,roi='V1',activation_level=3.1,threshold=2.0,severity='critical',reason='Activation exceeded threshold')]; video=VideoMetadata(filename='demo.mp4',duration_seconds=30.0,fps=30.0,resolution='1920x1080'); report=asyncio.run(gemini_report_service.generate_report(87, summary, seg, video)); print(report.headline); print(report.findings[0]); print(report.recommended_actions[0])"
-  ```
-- **Video Metadata Service Test (Fallback Mode):**
-  ```bash
-  python -c "from app.services.video_metadata import video_metadata_service; meta=video_metadata_service.extract_metadata('missing-file.mp4'); print(meta.filename, meta.duration_seconds, meta.fps, meta.resolution)"
-  ```
-- **YouTube Analysis Test:**
-  ```bash
-  # Submit job
-  curl.exe -X POST http://localhost:8000/api/analyze/youtube -H "Content-Type: application/json" -d "{\"url\":\"https://www.youtube.com/watch?v=dQw4w9WgXcQ\"}"
-  
-  # Poll status (replace JOB_ID)
-  curl.exe http://localhost:8000/api/analyze/job_abc123
-  ```
-- **WebSocket Real-time Progress Test:**
-  1. Start the backend: `python -m uvicorn app.main:app --reload`
-  2. In a new terminal, create a job and copy the `job_id`:
-     ```bash
-     curl.exe -X POST http://localhost:8000/api/analyze/youtube -H "Content-Type: application/json" -d "{\"url\":\"https://www.youtube.com/watch?v=dQw4w9WgXcQ\"}"
-     ```
-  3. Run the WebSocket test script:
-     ```bash
-     python scripts/test_ws.py <job_id>
-     ```
-
-## Full Demo Integration Flow
-For a complete end-to-end demonstration of the backend pipeline, you can use the provided demo script. This script automates the process of submitting a job, polling for real-time progress updates, and displaying the final synchronized analysis results.
-
-### Using the Demo Script
-1. Ensure the backend is running (`uvicorn app.main:app`).
-2. Run the script for a YouTube URL:
-   ```bash
-   python scripts/demo_flow.py youtube
-   ```
-3. Run the script for a local file upload:
-   ```bash
-   python scripts/demo_flow.py upload
-   ```
-
-### What the Demo Script Verifies:
-- **Service Chaining**: Orchestrator correctly calls Metadata -> Model Adapter -> Danger Scoring -> Gemini Report -> Result Formatter.
-- **Background Tasks**: Jobs are processed asynchronously without blocking the API.
-- **Progress Streaming**: Status and progress % update realistically through the job lifecycle.
-- **Data Synchronization**: ROI timeseries, danger segments, and 3D brain frames share a unified timestamp axis.
-- **Fallback Resilience**: Works perfectly without Gemini API keys or external model connections.
-
-## Error Handling
-NeuroSafe uses a standardized JSON error format for all API and WebSocket errors.
-
-**Error Response Shape:**
+## WebSocket Progress
+**`WS /ws/analyze/{job_id}`**
+Streams real-time updates to the frontend:
 ```json
 {
-  "error": "error_code_string",
-  "message": "Human readable message",
-  "status_code": 400,
-  "details": {
-    "key": "additional context"
-  }
+  "job_id": "...",
+  "status": "processing",
+  "progress": 45,
+  "message": "Running TRIBE model inference...",
+  "timestamp": "..."
 }
 ```
 
-**Common Error Codes:**
-- `job_not_found` (404): The requested job ID does not exist.
-- `validation_error` (400/422): Invalid input data or URL format.
-- `upload_error` (400): Failed to save or process the uploaded file.
-- `internal_server_error` (500): Unexpected backend failure.
+## Error Format
+All errors return a standardized JSON shape:
+```json
+{
+  "error": "job_not_found",
+  "message": "Analysis job was not found.",
+  "status_code": 404,
+  "details": { "job_id": "..." }
+}
+```
 
-## Note
-This is an initial scaffold. Model integration, job orchestration, Gemini integration, yt-dlp, and danger scoring will be added in later branches.
+## Integration Guide for Dev 1 (ML)
+To plug in a new model:
+1. Update `app/adapters/huggingface_adapter.py`.
+2. Implement the `analyze_video` method.
+3. Ensure it returns a `RawModelOutput` with:
+   - `roi_activations`: Dictionary with keys `V1`, `V2`, `V3`, `V4`, `MT+`.
+   - `timestamps`: List of times matching the activation array lengths.
+
+## Integration Guide for Dev 2 (Frontend)
+1. **Submit**: Use `/api/analyze/upload` or `/youtube`.
+2. **Track**: Connect to `/ws/analyze/{job_id}` for progress.
+3. **Retrieve**: When status is `completed`, read the `result` from the status endpoint.
+4. **Render**:
+   - `roi_timeseries`: Use for line charts.
+   - `brain_visualization.frames`: Use for the 3D brain map.
+   - `gemini_report`: Use for the final clinical summary.
+
+## Full Demo Flow
+Verify the entire pipeline using the automated script:
+```bash
+# YouTube Demo
+python scripts/demo_flow.py youtube
+
+# File Upload Demo
+python scripts/demo_flow.py upload
+```
+
+## Troubleshooting
+- **`py` or `python` not found**: Ensure Python 3.10+ is in your PATH.
+- **Module not found**: Confirm the virtual environment is activated and `pip install` succeeded.
+- **Connection Refused**: Ensure the uvicorn server is running on port 8000.
+- **ffprobe errors**: If FFmpeg is not installed, the backend uses fallback metadata (30s, 30fps). This is normal for local dev.
+- **yt-dlp errors**: Some YouTube videos may be age-restricted or regional. The backend will fall back to demo mode data automatically.
