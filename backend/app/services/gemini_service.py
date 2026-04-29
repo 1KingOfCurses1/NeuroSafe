@@ -9,11 +9,16 @@ from app.schemas.analysis import DangerSegment, AnalysisSummary, VideoMetadata
 logger = logging.getLogger(__name__)
 
 # Optional: Try to import Gemini SDK
-try:
-    import google.generativeai as genai
-    HAS_GEMINI = True
-except ImportError:
-    HAS_GEMINI = False
+import warnings
+with warnings.catch_warnings():
+    # google-generativeai may print a FutureWarning about package deprecation on startup.
+    # We suppress this to keep the backend logs clean during the hackathon.
+    warnings.simplefilter("ignore", category=FutureWarning)
+    try:
+        import google.generativeai as genai
+        HAS_GEMINI = True
+    except ImportError:
+        HAS_GEMINI = False
 
 class GeminiReportService:
     """

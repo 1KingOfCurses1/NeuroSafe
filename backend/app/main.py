@@ -58,7 +58,7 @@ async def neurosafe_exception_handler(request: Request, exc: NeuroSafeError):
     return JSONResponse(
         status_code=exc.status_code,
         content=ErrorResponse(
-            error=exc.error,
+            error=exc.error_code,
             message=exc.message,
             status_code=exc.status_code,
             details=exc.details
