@@ -1,7 +1,7 @@
 import logging
-from typing import List
+from typing import List, Union, Any
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic import Field
+from pydantic import Field, field_validator
 
 # Setup basic logging to show mode on startup
 logging.basicConfig(level=logging.INFO)
@@ -22,11 +22,21 @@ class Settings(BaseSettings):
     UPLOAD_DIR: str = "./uploads"
     
     # CORS Configuration
-    ALLOWED_ORIGINS: List[str] = [
+    # We use Union[List[str], str] to allow comma-separated strings from env vars
+    ALLOWED_ORIGINS: Union[List[str], str] = [
         "http://localhost:5173", 
         "http://localhost:5174", 
         "http://localhost:3000"
     ]
+
+    @field_validator("ALLOWED_ORIGINS", mode="before")
+    @classmethod
+    def assemble_cors_origins(cls, v: Any) -> List[str]:
+        if isinstance(v, str) and not v.startswith("["):
+            return [i.strip() for i in v.split(",")]
+        elif isinstance(v, list):
+            return v
+        return v # Let pydantic handle other cases or throw error
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

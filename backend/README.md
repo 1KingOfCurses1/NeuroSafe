@@ -112,6 +112,46 @@ python scripts/demo_flow.py youtube
 python scripts/demo_flow.py upload
 ```
 
+docker run --rm -p 8000:8000 --env-file .env neurosafe-backend
+```
+
+## DigitalOcean Deployment Notes
+The backend is designed for simple deployment on DigitalOcean using Docker or a direct Python process.
+
+### Path A: Docker Droplet (Recommended)
+1. **Create Droplet**: Launch an Ubuntu Droplet with Docker pre-installed.
+2. **Clone & Setup**:
+   ```bash
+   git clone <repo-url>
+   cd backend
+   cp .env.production.example .env
+   # Edit .env to set your ALLOWED_ORIGINS (frontend URL)
+   ```
+3. **Build & Run**:
+   ```bash
+   docker build -t neurosafe-backend .
+   docker run -d --name neurosafe-backend -p 8000:8000 --env-file .env neurosafe-backend
+   ```
+4. **Verify**: Check `http://<YOUR_IP>:8000/health`.
+
+### Path B: Manual Python Setup
+1. **Setup**:
+   ```bash
+   python3 -m venv .venv
+   source .venv/bin/activate
+   pip install -r requirements.txt
+   ```
+2. **Run**:
+   ```bash
+   python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8000
+   ```
+
+### Important Deployment Considerations
+- **WebSockets**: Ensure your firewall allows incoming traffic on port 8000. If using a reverse proxy (Nginx), ensure it is configured for WebSocket upgrades.
+- **HTTPS**: For production use with a domain, use a reverse proxy like Nginx or Caddy to handle SSL (WSS for WebSockets).
+- **Storage**: Uploads are stored locally in the `./uploads` directory. For a persistent production app, integrate DigitalOcean Spaces.
+- **Persistence**: The job store is in-memory; restarting the process clears all active and past jobs.
+
 ## Troubleshooting
 - **`py` or `python` not found**: Ensure Python 3.10+ is in your PATH.
 - **Module not found**: Confirm the virtual environment is activated and `pip install` succeeded.
