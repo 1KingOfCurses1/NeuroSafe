@@ -71,6 +71,14 @@ uvicorn app.main:app --reload
   ```powershell
   curl.exe -X POST http://localhost:8000/api/analyze/youtube -H "Content-Type: application/json" -d "{\"url\":\"https://example.com/video\"}"
   ```
+- **Polling Status & Results:**
+  1. Submit a job (Upload or YouTube).
+  2. Copy the `job_id` from the response.
+  3. Poll the status:
+     ```powershell
+     curl.exe http://localhost:8000/api/analyze/{job_id}
+     ```
+  4. After ~1-2 seconds, the `status` will be `completed` and the `result` field will be populated.
 
 ## Note
 This is an initial scaffold. Model integration, job orchestration, Gemini integration, yt-dlp, and danger scoring will be added in later branches.

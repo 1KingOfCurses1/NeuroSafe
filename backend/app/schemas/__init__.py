@@ -26,3 +26,6 @@ __all__ = [
     "RoiTimeSeries",
     "AnalysisResult",
 ]
+
+# Rebuild models to resolve forward references
+JobStatusResponse.model_rebuild()

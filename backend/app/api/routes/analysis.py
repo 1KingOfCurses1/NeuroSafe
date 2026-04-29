@@ -2,7 +2,7 @@ import shutil
 import os
 from pathlib import Path
 from fastapi import APIRouter, UploadFile, File, BackgroundTasks, HTTPException
-from app.schemas.jobs import JobCreateResponse, SourceType
+from app.schemas.jobs import JobCreateResponse, SourceType, JobStatusResponse
 from app.schemas.analysis import YouTubeAnalyzeRequest
 from app.services.job_store import job_store
 from app.services.orchestrator import analysis_orchestrator
@@ -90,9 +90,17 @@ async def analyze_youtube(
         message="YouTube URL accepted. Analysis started."
     )
 
-@router.get("/{job_id}")
+@router.get("/{job_id}", response_model=JobStatusResponse)
 async def get_analysis_result(job_id: str):
-    return {
-        "job_id": job_id,
-        "message": "Analysis endpoint scaffolded. Job orchestration will be implemented in a later branch."
-    }
+    job = job_store.get_job(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
+
+    return JobStatusResponse(
+        job_id=job.job_id,
+        status=job.status,
+        progress=job.progress,
+        message=job.message,
+        result=job.result,
+        error=job.error
+    )
