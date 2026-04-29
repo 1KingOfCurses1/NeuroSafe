@@ -41,7 +41,7 @@ class AnalysisOrchestrator:
             logger.info(f"Job {job_id}: Extracting metadata from {path_to_extract}")
             metadata = video_metadata_service.extract_metadata(path_to_extract)
             logger.info(f"Job {job_id}: Metadata extracted successfully ({metadata.duration_seconds}s, {metadata.resolution})")
-            await asyncio.sleep(0.5) # Simulate slight delay for UI
+            await asyncio.sleep(0.1) # Brief yield for UI
 
             # 2. Stage: Running Model Inference (40%)
             if settings.is_tribe_mode:
@@ -60,7 +60,7 @@ class AnalysisOrchestrator:
             logger.info(f"Job {job_id}: Running inference via {adapter.provider_name}...")
             raw_output = await adapter.analyze_video(path_to_extract, job_id=job_id)
             logger.info(f"Job {job_id}: Model inference complete.")
-            await asyncio.sleep(0.5)
+            await asyncio.sleep(0.1)
 
             # 3. Stage: Scoring Danger (65%)
             job_store.update_job(
@@ -72,7 +72,7 @@ class AnalysisOrchestrator:
             logger.info(f"Job {job_id}: Scoring model output...")
             score, summary, danger_segments = danger_scoring_service.score_model_output(raw_output, job_id=job_id)
             logger.info(f"Job {job_id}: Scoring complete (Score: {score}, Severity: {summary.severity})")
-            await asyncio.sleep(0.5)
+            await asyncio.sleep(0.1)
 
             # 4. Stage: Generating Report (85%)
             job_store.update_job(
@@ -90,7 +90,7 @@ class AnalysisOrchestrator:
                 video_metadata=metadata
             )
             logger.info(f"Job {job_id}: Report generation complete.")
-            await asyncio.sleep(0.5)
+            await asyncio.sleep(0.1)
 
             # 5. Stage: Formatting Results (95%)
             job_store.update_job(

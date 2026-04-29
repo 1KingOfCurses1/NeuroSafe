@@ -83,6 +83,7 @@ class ResultFormatter:
                 all_vertex_activations=vertex_array,
                 timestamps=model_output.timestamps,
                 danger_timestamps=danger_ts,
+                max_frames=8,
             )
             rendered_frames = {r["timestamp"]: r["image_b64"] for r in rendered}
 

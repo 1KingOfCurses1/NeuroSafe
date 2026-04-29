@@ -71,8 +71,8 @@ class VideoMetadataService:
             )
 
         except (subprocess.CalledProcessError, FileNotFoundError, json.JSONDecodeError, ValueError) as e:
-            logger.warning(f"ffprobe extraction failed for {video_path}: {e}. Using fallback metadata.")
-            return default_metadata
+            logger.warning(f"ffprobe extraction failed for {video_path}: {e}. Trying imageio fallback...")
+            return self._extract_with_imageio(video_path, filename, default_metadata)
 
     def _parse_fps(self, fps_str: str) -> float:
         """
@@ -87,5 +87,30 @@ class VideoMetadataService:
             return float(fps_str)
         except (ValueError, ZeroDivisionError):
             return 30.0
+
+    def _extract_with_imageio(self, video_path: str, filename: str, default: VideoMetadata) -> VideoMetadata:
+        """
+        Fallback metadata extraction using imageio + imageio-ffmpeg.
+        """
+        try:
+            import imageio.v2 as iio
+            reader = iio.get_reader(video_path, "ffmpeg")
+            meta = reader.get_meta_data()
+            reader.close()
+
+            fps = float(meta.get("fps", 30.0))
+            duration = float(meta.get("duration", 30.0))
+            size = meta.get("size", (1920, 1080))
+
+            logger.info(f"imageio fallback succeeded: {duration:.1f}s, {fps:.1f}fps, {size[0]}x{size[1]}")
+            return VideoMetadata(
+                filename=filename,
+                duration_seconds=round(duration, 2),
+                fps=round(fps, 2),
+                resolution=f"{size[0]}x{size[1]}",
+            )
+        except Exception as e2:
+            logger.warning(f"imageio fallback also failed: {e2}. Using hardcoded defaults.")
+            return default
 
 video_metadata_service = VideoMetadataService()
