@@ -103,6 +103,10 @@ uvicorn app.main:app --reload
   ```bash
   python -c "import asyncio; from app.schemas.analysis import AnalysisSummary, DangerSegment, VideoMetadata; from app.services.gemini_service import gemini_report_service; summary=AnalysisSummary(severity='high', segments_detected=1, total_danger_duration_seconds=3.0); seg=[DangerSegment(start_time=14.0,end_time=17.0,peak_time=15.5,roi='V1',activation_level=3.1,threshold=2.0,severity='critical',reason='Activation exceeded threshold')]; video=VideoMetadata(filename='demo.mp4',duration_seconds=30.0,fps=30.0,resolution='1920x1080'); report=asyncio.run(gemini_report_service.generate_report(87, summary, seg, video)); print(report.headline); print(report.findings[0]); print(report.recommended_actions[0])"
   ```
+- **Video Metadata Service Test (Fallback Mode):**
+  ```bash
+  python -c "from app.services.video_metadata import video_metadata_service; meta=video_metadata_service.extract_metadata('missing-file.mp4'); print(meta.filename, meta.duration_seconds, meta.fps, meta.resolution)"
+  ```
 - **WebSocket Real-time Progress Test:**
   1. Start the backend: `python -m uvicorn app.main:app --reload`
   2. In a new terminal, create a job and copy the `job_id`:
