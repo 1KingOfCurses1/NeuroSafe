@@ -73,7 +73,7 @@ class Settings(BaseSettings):
         # 1. Check Model Provider
         if self.is_tribe_mode:
             from importlib.util import find_spec
-            has_tribe_pkg = find_spec("tribe_v2") is not None
+            has_tribe_pkg = find_spec("tribev2") is not None
             if not has_tribe_pkg and (not self.HF_API_URL or not self.HF_API_TOKEN):
                 warnings.append(
                     "MODEL_PROVIDER=tribe_v2 but neither the tribe_v2 package is installed "
