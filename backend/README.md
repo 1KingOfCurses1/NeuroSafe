@@ -154,6 +154,27 @@ uvicorn app.main:app --reload
      python scripts/test_ws.py <job_id>
      ```
 
+## Full Demo Integration Flow
+For a complete end-to-end demonstration of the backend pipeline, you can use the provided demo script. This script automates the process of submitting a job, polling for real-time progress updates, and displaying the final synchronized analysis results.
+
+### Using the Demo Script
+1. Ensure the backend is running (`uvicorn app.main:app`).
+2. Run the script for a YouTube URL:
+   ```bash
+   python scripts/demo_flow.py youtube
+   ```
+3. Run the script for a local file upload:
+   ```bash
+   python scripts/demo_flow.py upload
+   ```
+
+### What the Demo Script Verifies:
+- **Service Chaining**: Orchestrator correctly calls Metadata -> Model Adapter -> Danger Scoring -> Gemini Report -> Result Formatter.
+- **Background Tasks**: Jobs are processed asynchronously without blocking the API.
+- **Progress Streaming**: Status and progress % update realistically through the job lifecycle.
+- **Data Synchronization**: ROI timeseries, danger segments, and 3D brain frames share a unified timestamp axis.
+- **Fallback Resilience**: Works perfectly without Gemini API keys or external model connections.
+
 ## Error Handling
 NeuroSafe uses a standardized JSON error format for all API and WebSocket errors.
 

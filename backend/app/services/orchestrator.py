@@ -1,145 +1,106 @@
 import asyncio
-from typing import List
-from app.services.job_store import job_store, JobNotFoundError
+import logging
+import os
+from typing import Optional
+from app.services.job_store import job_store
 from app.schemas.jobs import JobStatus
-from app.schemas.analysis import (
-    AnalysisResult, 
-    VideoMetadata, 
-    AnalysisSummary, 
-    DangerSegment, 
-    RoiTimeSeries
-)
-from app.schemas.reports import GeminiReport
-from app.schemas.visualization import BrainFrame, BrainVisualizationPayload
+from app.schemas.analysis import AnalysisResult
+from app.adapters import demo_model_adapter
+from app.services.danger_scoring import danger_scoring_service
+from app.services.result_formatter import result_formatter
+from app.services.gemini_service import gemini_report_service
+from app.services.video_metadata import video_metadata_service
+
+logger = logging.getLogger(__name__)
 
 class AnalysisOrchestrator:
-    async def run_demo_analysis(self, job_id: str) -> AnalysisResult:
+    """
+    Orchestrates the full analysis pipeline by chaining together 
+    specialized services for metadata extraction, model inference, 
+    risk scoring, and report generation.
+    """
+
+    async def run_demo_analysis(self, job_id: str, video_path: Optional[str] = None) -> AnalysisResult:
+        """
+        Runs the full analysis pipeline in demo mode.
+        If video_path is provided, it attempts to extract real metadata, 
+        otherwise falls back to demo defaults.
+        """
         try:
-            # Stage: Queued
-            job_store.update_job(job_id, status=JobStatus.QUEUED, progress=0, message="Analysis queued")
-            await asyncio.sleep(0.1)
-
-            # Stage: Extracting Metadata
-            job_store.update_job(job_id, status=JobStatus.EXTRACTING_METADATA, progress=15, message="Extracting video metadata")
-            await asyncio.sleep(0.2)
-
-            # Stage: Running Model
-            job_store.update_job(job_id, status=JobStatus.RUNNING_MODEL, progress=40, message="Running TRIBE model inference")
-            await asyncio.sleep(0.2)
-
-            # Stage: Scoring Danger
-            job_store.update_job(job_id, status=JobStatus.SCORING_DANGER, progress=65, message="Calculating seizure risk scores")
-            await asyncio.sleep(0.2)
-
-            # Stage: Generating Visualization
-            job_store.update_job(job_id, status=JobStatus.GENERATING_VISUALIZATION, progress=80, message="Generating 3D brain visualization data")
-            await asyncio.sleep(0.1)
-
-            # Stage: Generating Report
-            job_store.update_job(job_id, status=JobStatus.GENERATING_REPORT, progress=90, message="Generating Gemini clinical report")
-            await asyncio.sleep(0.1)
-
-            # Generate Placeholder Result
-            timestamps = [0.0, 5.0, 10.0, 15.0, 20.0, 25.0, 30.0]
-            
-            roi_timeseries = RoiTimeSeries(
-                timestamps=timestamps,
-                V1=[0.1, 0.2, 0.4, 0.9, 0.3, 0.2, 0.1],
-                V2=[0.1, 0.1, 0.3, 0.8, 0.2, 0.1, 0.1],
-                V3=[0.0, 0.1, 0.2, 0.7, 0.1, 0.1, 0.0],
-                V4=[0.0, 0.0, 0.1, 0.6, 0.1, 0.0, 0.0],
-                MT_plus=[0.1, 0.3, 0.5, 0.95, 0.4, 0.2, 0.1]
+            # 1. Stage: Extracting Metadata (15%)
+            job_store.update_job(
+                job_id, 
+                status=JobStatus.EXTRACTING_METADATA, 
+                progress=15, 
+                message="Analyzing video container and metadata..."
             )
+            # Use real file if it exists, otherwise extract_metadata handles fallback
+            path_to_extract = video_path if video_path and os.path.exists(video_path) else "demo.mp4"
+            metadata = video_metadata_service.extract_metadata(path_to_extract)
+            await asyncio.sleep(0.5) # Simulate slight delay for UI
 
-            brain_frames = [
-                BrainFrame(
-                    timestamp=t,
-                    roi_activations={
-                        "V1": roi_timeseries.V1[i],
-                        "V2": roi_timeseries.V2[i],
-                        "V3": roi_timeseries.V3[i],
-                        "V4": roi_timeseries.V4[i],
-                        "MT+": roi_timeseries.MT_plus[i]
-                    },
-                    max_activation=max(roi_timeseries.V1[i], roi_timeseries.MT_plus[i]),
-                    danger_level="high" if i == 3 else "low"
-                )
-                for i, t in enumerate(timestamps)
-            ]
-
-            visualization = BrainVisualizationPayload(
-                job_id=job_id,
-                frames=brain_frames
+            # 2. Stage: Running Model Inference (40%)
+            job_store.update_job(
+                job_id, 
+                status=JobStatus.RUNNING_MODEL, 
+                progress=40, 
+                message="Running TRIBE model inference on visual cortex (V1-V4, MT+)..."
             )
+            # demo_model_adapter always returns deterministic data
+            raw_output = await demo_model_adapter.analyze_video(path_to_extract)
+            await asyncio.sleep(0.5)
 
-            report = GeminiReport(
-                headline="High Risk of Photosensitive Seizure Detected",
-                findings=[
-                    "High activation detected in V1 and MT+ regions between 14-17 seconds.",
-                    "Luminance flash frequency exceeds safe thresholds (15Hz+).",
-                    "Second danger segment identified at 23 seconds due to high contrast patterns."
-                ],
-                recommended_actions=[
-                    "Apply a 20% luminance reduction filter to the 14-18s segment.",
-                    "Reduce saturation in red channels during the 23-26s segment.",
-                    "Add a viewer warning at the beginning of the video."
-                ]
+            # 3. Stage: Scoring Danger (65%)
+            job_store.update_job(
+                job_id, 
+                status=JobStatus.SCORING_DANGER, 
+                progress=65, 
+                message="Calculating seizure risk scores and detecting danger segments..."
             )
+            score, summary, danger_segments = danger_scoring_service.score_model_output(raw_output)
+            await asyncio.sleep(0.5)
 
-            summary = AnalysisSummary(
-                severity="high",
-                segments_detected=2,
-                total_danger_duration_seconds=5.8
+            # 4. Stage: Generating Report (85%)
+            job_store.update_job(
+                job_id, 
+                status=JobStatus.GENERATING_REPORT, 
+                progress=85, 
+                message="Generating Gemini clinical content-safety report..."
             )
-
-            metadata = VideoMetadata(
-                filename="demo-video.mp4",
-                duration_seconds=30.0,
-                fps=30.0,
-                resolution="1920x1080"
-            )
-
-            danger_segments = [
-                DangerSegment(
-                    start_time=14.0,
-                    end_time=17.2,
-                    peak_time=15.5,
-                    roi="MT+",
-                    activation_level=0.95,
-                    threshold=0.7,
-                    severity="high",
-                    reason="High frequency luminance oscillation"
-                ),
-                DangerSegment(
-                    start_time=23.0,
-                    end_time=25.6,
-                    peak_time=24.1,
-                    roi="V1",
-                    activation_level=0.88,
-                    threshold=0.7,
-                    severity="medium",
-                    reason="High contrast repetitive patterns"
-                )
-            ]
-
-            result = AnalysisResult(
-                job_id=job_id,
-                status=JobStatus.COMPLETED,
-                video=metadata,
-                danger_score=87,
+            report = await gemini_report_service.generate_report(
+                danger_score=score,
                 summary=summary,
                 danger_segments=danger_segments,
-                roi_timeseries=roi_timeseries,
-                gemini_report=report,
-                brain_visualization=visualization
+                video_metadata=metadata
             )
+            await asyncio.sleep(0.5)
 
-            # Stage: Completed
+            # 5. Stage: Formatting Results (95%)
+            job_store.update_job(
+                job_id, 
+                status=JobStatus.GENERATING_VISUALIZATION, 
+                progress=95, 
+                message="Finalizing 3D brain visualization and result payload..."
+            )
+            result = result_formatter.format_analysis_result(
+                job_id=job_id,
+                model_output=raw_output,
+                danger_score=score,
+                summary=summary,
+                danger_segments=danger_segments,
+                report=report,
+                video_metadata=metadata
+            )
+            
+            # 6. Finalize: Completed (100%)
             job_store.set_result(job_id, result)
+            logger.info(f"Analysis job {job_id} completed successfully.")
+            
             return result
 
         except Exception as e:
-            job_store.fail_job(job_id, error=str(e), message="Analysis failed")
+            logger.error(f"Analysis pipeline failed for job {job_id}: {str(e)}", exc_info=True)
+            job_store.fail_job(job_id, error=str(e), message="Analysis failed during orchestration")
             raise e
 
 analysis_orchestrator = AnalysisOrchestrator()
