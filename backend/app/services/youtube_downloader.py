@@ -22,8 +22,8 @@ class YouTubeDownloaderService:
         if not os.path.exists(output_dir):
             os.makedirs(output_dir, exist_ok=True)
 
-        # Output template: job_<id>_youtube.ext
-        output_template = os.path.join(output_dir, f"job_{job_id}_youtube.%(ext)s")
+        # Output template: <job_id>_youtube.ext (job_id already contains 'job_' prefix)
+        output_template = os.path.join(output_dir, f"{job_id}_youtube.%(ext)s")
 
         ydl_opts = {
             'format': 'mp4/best[ext=mp4]/best',
@@ -40,7 +40,7 @@ class YouTubeDownloaderService:
                 
                 # Construct the actual filename (yt-dlp might have added an extension)
                 ext = info.get('ext', 'mp4')
-                downloaded_path = os.path.join(output_dir, f"job_{job_id}_youtube.{ext}")
+                downloaded_path = os.path.join(output_dir, f"{job_id}_youtube.{ext}")
                 
                 if not os.path.exists(downloaded_path):
                     # Sometimes yt-dlp returns info but the file is named slightly differently

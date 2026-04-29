@@ -34,6 +34,14 @@ The NeuroSafe backend is a FastAPI integration layer designed to orchestrate vid
    ```
    Backend active at: [http://localhost:8000](http://localhost:8000)
 
+## Final Demo Checklist
+To verify the system is ready for the demo:
+1. **Health Check**: Visit `http://localhost:8000/health`.
+2. **Config Verification**: Visit `http://localhost:8000/api/analyze/demo/config` to check active features.
+3. **Automated YouTube Test**: Run `python scripts/demo_flow.py youtube`.
+4. **Automated Upload Test**: Run `python scripts/demo_flow.py upload`.
+5. **Frontend Connection**: Ensure the React app points to `http://localhost:8000`.
+
 ## Environment Variables
 Defined in `.env.example`:
 - `APP_ENV`: `development` or `production`.
@@ -105,7 +113,7 @@ To plug in a new model:
    - `timestamps`: List of times matching the activation array lengths.
 
 ## Integration Guide for Dev 2 (Frontend)
-1. **Submit**: Use `/api/analyze/upload` or `/youtube`.
+1. **Submit**: Use `/api/analyze/upload` or `/api/analyze/youtube`.
 2. **Track**: Connect to `/ws/analyze/{job_id}` for progress.
 3. **Retrieve**: When status is `completed`, read the `result` from the status endpoint.
 4. **Render**:
