@@ -87,6 +87,10 @@ uvicorn app.main:app --reload
   ```bash
   python -c "import asyncio; from app.adapters import demo_model_adapter; output=asyncio.run(demo_model_adapter.analyze_video('demo.mp4')); print(output.model_name, output.model_provider, output.duration_seconds); print(len(output.timestamps), len(output.roi_activations['V1'])); print(max(output.roi_activations['V1']), max(output.roi_activations['MT+']))"
   ```
+- **Hugging Face Adapter Stub Test:**
+  ```bash
+  python -c "from app.adapters import huggingface_model_adapter; print(huggingface_model_adapter.provider_name, huggingface_model_adapter.model_name)"
+  ```
 
 ## Note
 This is an initial scaffold. Model integration, job orchestration, Gemini integration, yt-dlp, and danger scoring will be added in later branches.
