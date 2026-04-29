@@ -10,6 +10,7 @@ NeuroSafe is built on a modular integration layer that connects deep learning mo
 - **Risk Scoring Engine**: Analyzes ROI (Region of Interest) activations to calculate danger levels.
 - **Gemini AI Integration**: Generates clinical safety reports based on technical analysis data.
 - **Real-time Progress**: Uses WebSockets to stream analysis status to the frontend.
+- **Dockerized**: Provides a consistent environment for development and deployment.
 
 ## Repository Structure
 - `backend/`: The FastAPI integration layer, services, and API endpoints.

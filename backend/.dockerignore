@@ -1,0 +1,37 @@
+# Virtual environments
+.venv/
+env/
+venv/
+ENV/
+
+# Python cache and temporary files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# Local configuration and secrets
+.env
+.env.local
+
+# Local data and uploads
+uploads/
+test_ws.mp4
+demo_test.mp4
+test.mp4
+
+# Logs
+logs/
+*.log
+
+# Git
+.git
+.gitignore
+
+# OS files
+.DS_Store
+Thumbs.db
