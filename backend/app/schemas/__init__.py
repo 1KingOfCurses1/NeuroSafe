@@ -9,6 +9,7 @@ from app.schemas.analysis import (
     RoiTimeSeries,
     AnalysisResult,
 )
+from app.schemas.errors import ErrorResponse
 
 __all__ = [
     "JobStatus",
@@ -25,6 +26,7 @@ __all__ = [
     "AnalysisSummary",
     "RoiTimeSeries",
     "AnalysisResult",
+    "ErrorResponse",
 ]
 
 # Rebuild models to resolve forward references

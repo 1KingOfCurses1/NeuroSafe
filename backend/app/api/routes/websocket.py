@@ -1,9 +1,9 @@
 import asyncio
 import logging
 from datetime import datetime
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, status
 from app.services.job_store import job_store
-from app.schemas import JobStatus, ProgressEvent
+from app.schemas import JobStatus, ProgressEvent, ErrorResponse
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -21,12 +21,13 @@ async def websocket_endpoint(websocket: WebSocket, job_id: str):
         # 1. Validate Job Existence
         job = job_store.get_job(job_id)
         if not job:
-            await websocket.send_json({
-                "job_id": job_id,
-                "status": "error",
-                "progress": 0,
-                "message": f"Job {job_id} not found."
-            })
+            error_data = ErrorResponse(
+                error="job_not_found",
+                message=f"Analysis job '{job_id}' was not found.",
+                status_code=404,
+                details={"job_id": job_id}
+            )
+            await websocket.send_json(error_data.model_dump())
             await websocket.close(code=1000)
             return
 
@@ -76,7 +77,12 @@ async def websocket_endpoint(websocket: WebSocket, job_id: str):
     except Exception as e:
         logger.error(f"WebSocket error for job {job_id}: {e}")
         try:
-            await websocket.send_json({"error": str(e)})
+            error_data = ErrorResponse(
+                error="internal_server_error",
+                message="An unexpected WebSocket error occurred.",
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+            await websocket.send_json(error_data.model_dump())
             await websocket.close(code=1011)
         except:
             pass
