@@ -118,3 +118,24 @@ python scripts/demo_flow.py upload
 - **Connection Refused**: Ensure the uvicorn server is running on port 8000.
 - **ffprobe errors**: If FFmpeg is not installed, the backend uses fallback metadata (30s, 30fps). This is normal for local dev.
 - **yt-dlp errors**: Some YouTube videos may be age-restricted or regional. The backend will fall back to demo mode data automatically.
+
+## Docker Support
+The backend can be run in a containerized environment for consistency across systems.
+
+### 1. Build Image
+From the `backend/` directory:
+```powershell
+docker build -t neurosafe-backend .
+```
+
+### 2. Run Container
+```powershell
+docker run --rm -p 8000:8000 neurosafe-backend
+```
+The backend will default to **Demo Mode** and be accessible at `http://localhost:8000`.
+
+### 3. Run with Environment Variables
+To use a real model or Gemini API keys from your local `.env` file:
+```powershell
+docker run --rm -p 8000:8000 --env-file .env neurosafe-backend
+```
