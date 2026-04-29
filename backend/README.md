@@ -113,6 +113,13 @@ To plug in a new model:
    - `brain_visualization.frames`: Use for the 3D brain map.
    - `gemini_report`: Use for the final clinical summary.
 
+## Pipeline Logging
+The backend uses structured logging to provide visibility into the analysis pipeline:
+- **Job-ID Centered**: All logs related to a specific analysis include the `job_id`.
+- **Stage Transitions**: Logs highlight transitions between metadata extraction, model inference, scoring, and reporting.
+- **Safety**: Logs avoid sensitive information such as API keys or full authentication headers.
+- **Diagnostics**: Fallback behaviors (e.g., Gemini fallback, ffprobe fallback) are logged as warnings for easy identification.
+
 ## Full Demo Flow
 Verify the entire pipeline using the automated script:
 ```bash

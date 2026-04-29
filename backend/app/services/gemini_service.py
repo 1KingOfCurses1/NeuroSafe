@@ -26,6 +26,7 @@ class GeminiReportService:
         danger_score: int,
         summary: AnalysisSummary,
         danger_segments: List[DangerSegment],
+        job_id: str = "unknown",
         video_metadata: Optional[VideoMetadata] = None,
     ) -> GeminiReport:
         """
@@ -34,14 +35,17 @@ class GeminiReportService:
         """
         # 1. Immediate Fallback if not configured or dependency missing
         if not HAS_GEMINI or not settings.GEMINI_API_KEY:
-            logger.info("Gemini API not configured or SDK missing. Using local fallback report.")
+            logger.info(f"Job {job_id}: Gemini API not configured or SDK missing. Using local fallback report.")
             return self._generate_fallback_report(danger_score, summary, danger_segments)
 
         # 2. Try Gemini Call
         try:
-            return await self._call_gemini(danger_score, summary, danger_segments, video_metadata)
+            logger.info(f"Job {job_id}: Calling Gemini API for clinical analysis...")
+            report = await self._call_gemini(danger_score, summary, danger_segments, video_metadata)
+            logger.info(f"Job {job_id}: Gemini API response received and parsed.")
+            return report
         except Exception as e:
-            logger.error(f"Gemini API call failed: {e}. Falling back to local report.")
+            logger.error(f"Job {job_id}: Gemini API call failed: {e}. Falling back to local report.")
             return self._generate_fallback_report(danger_score, summary, danger_segments)
 
     async def _call_gemini(

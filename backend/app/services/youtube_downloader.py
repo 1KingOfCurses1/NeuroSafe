@@ -46,6 +46,8 @@ class YouTubeDownloaderService:
                     # Sometimes yt-dlp returns info but the file is named slightly differently
                     # or it's still processing. We'll do a quick check for the most likely name.
                     logger.warning(f"Expected file {downloaded_path} not found immediately after download.")
+                else:
+                    logger.info(f"YouTube download complete for job {job_id}: {downloaded_path}")
                 
                 return downloaded_path
 
