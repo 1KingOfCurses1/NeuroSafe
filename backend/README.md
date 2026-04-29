@@ -99,6 +99,16 @@ uvicorn app.main:app --reload
   ```bash
   python -c "import asyncio; from app.adapters import demo_model_adapter; from app.services.danger_scoring import danger_scoring_service; from app.services.result_formatter import result_formatter; output=asyncio.run(demo_model_adapter.analyze_video('demo.mp4')); score, summary, segments=danger_scoring_service.score_model_output(output); result=result_formatter.format_analysis_result('job_test', output, score, summary, segments); print(result.job_id, result.status, result.danger_score); print(result.roi_timeseries.timestamps[0], result.brain_visualization.frames[0].timestamp); print(result.roi_timeseries.MT_plus[0], result.brain_visualization.frames[0].roi_activations['MT+']); print(result.gemini_report.headline)"
   ```
+- **WebSocket Real-time Progress Test:**
+  1. Start the backend: `python -m uvicorn app.main:app --reload`
+  2. In a new terminal, create a job and copy the `job_id`:
+     ```bash
+     curl.exe -X POST http://localhost:8000/api/analyze/youtube -H "Content-Type: application/json" -d "{\"url\":\"https://www.youtube.com/watch?v=dQw4w9WgXcQ\"}"
+     ```
+  3. Run the WebSocket test script:
+     ```bash
+     python scripts/test_ws.py <job_id>
+     ```
 
 ## Note
 This is an initial scaffold. Model integration, job orchestration, Gemini integration, yt-dlp, and danger scoring will be added in later branches.
