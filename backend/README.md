@@ -42,6 +42,34 @@ cp .env.example .env
 ```
 Default `MODEL_PROVIDER=demo` is used for development/testing without real model access.
 
+## Demo Mode
+By default, the backend runs in **Demo Mode** (`MODEL_PROVIDER=demo`). This mode is designed for hackathon presentations and local testing.
+
+### Key Features
+- **Zero Configuration**: Works out of the box without Hugging Face or Gemini API keys.
+- **Deterministic Data**: Uses realistic activation patterns for V1, V2, V3, V4, and MT+ regions.
+- **Full Pipeline Support**: Supports both direct MP4 uploads and YouTube URL submissions.
+- **Robust Fallbacks**: 
+    - If `ffprobe` is missing, defaults to 1080p/30fps metadata.
+    - If `yt-dlp` fails, falls back to demo analysis data.
+    - If `GEMINI_API_KEY` is missing, uses a local rule-based report generator.
+
+### Verification Commands
+Check configuration:
+```bash
+curl http://localhost:8000/api/analyze/demo/config
+```
+
+Run a YouTube test:
+```bash
+curl.exe -X POST http://localhost:8000/api/analyze/youtube -H "Content-Type: application/json" -d "{\"url\":\"https://www.youtube.com/watch?v=dQw4w9WgXcQ\"}"
+```
+
+Poll for results (replace `JOB_ID`):
+```bash
+curl http://localhost:8000/api/analyze/JOB_ID
+```
+
 ## Running the Backend
 ```bash
 uvicorn app.main:app --reload

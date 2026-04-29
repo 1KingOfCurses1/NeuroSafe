@@ -142,3 +142,22 @@ async def get_analysis_result(job_id: str):
         result=job.result,
         error=job.error
     )
+
+@router.get("/demo/config")
+async def get_demo_config():
+    """
+    Returns the current demo mode configuration.
+    Useful for judges and teammates to verify the environment.
+    """
+    return {
+        "model_provider": settings.MODEL_PROVIDER,
+        "is_demo_mode": settings.is_demo_mode,
+        "external_services_required": False if settings.is_demo_mode else True,
+        "features": {
+            "file_upload": True,
+            "youtube_url": True,
+            "websocket_progress": True,
+            "deterministic_results": settings.is_demo_mode,
+            "gemini_reports": "active" if settings.GEMINI_API_KEY else "fallback_mode"
+        }
+    }
