@@ -9,6 +9,11 @@ from app.services.job_store import job_store
 from app.services.orchestrator import analysis_orchestrator
 from app.services.youtube_downloader import youtube_downloader_service
 from app.core.config import settings
+from app.core.exceptions import (
+    JobNotFoundAPIError, 
+    ValidationAPIError, 
+    UploadAPIError
+)
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -57,13 +62,13 @@ async def analyze_upload(
 ):
     # 1. Basic Validation
     if not file.filename:
-        raise HTTPException(status_code=400, detail="Filename is empty")
+        raise ValidationAPIError(message="Filename is empty")
     
     file_ext = Path(file.filename).suffix.lower()
     if file_ext not in ALLOWED_EXTENSIONS:
-        raise HTTPException(
-            status_code=400, 
-            detail=f"Unsupported file extension. Allowed: {', '.join(ALLOWED_EXTENSIONS)}"
+        raise ValidationAPIError(
+            message=f"Unsupported file extension. Allowed: {', '.join(ALLOWED_EXTENSIONS)}",
+            details={"allowed": list(ALLOWED_EXTENSIONS), "provided": file_ext}
         )
 
     # 2. Create Job
@@ -85,7 +90,7 @@ async def analyze_upload(
             
     except Exception as e:
         job_store.fail_job(job.job_id, error=str(e), message="Failed to save uploaded file")
-        raise HTTPException(status_code=500, detail=f"Could not save file: {e}")
+        raise UploadAPIError(message=f"Could not save file: {e}")
 
     # 4. Start Background Analysis
     background_tasks.add_task(analysis_orchestrator.run_demo_analysis, job.job_id)
@@ -107,9 +112,9 @@ async def analyze_youtube(
     
     is_valid = any(domain in url for domain in youtube_domains)
     if not is_valid:
-        raise HTTPException(
-            status_code=400, 
-            detail="Invalid YouTube URL. Please provide a link from youtube.com or youtu.be"
+        raise ValidationAPIError(
+            message="Invalid YouTube URL. Please provide a link from youtube.com or youtu.be",
+            details={"provided_url": request.url}
         )
 
     # 2. Create Job
@@ -132,7 +137,7 @@ async def analyze_youtube(
 async def get_analysis_result(job_id: str):
     job = job_store.get_job(job_id)
     if not job:
-        raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
+        raise JobNotFoundAPIError(job_id=job_id)
 
     return JobStatusResponse(
         job_id=job.job_id,

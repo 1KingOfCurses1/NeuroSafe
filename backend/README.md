@@ -154,5 +154,26 @@ uvicorn app.main:app --reload
      python scripts/test_ws.py <job_id>
      ```
 
+## Error Handling
+NeuroSafe uses a standardized JSON error format for all API and WebSocket errors.
+
+**Error Response Shape:**
+```json
+{
+  "error": "error_code_string",
+  "message": "Human readable message",
+  "status_code": 400,
+  "details": {
+    "key": "additional context"
+  }
+}
+```
+
+**Common Error Codes:**
+- `job_not_found` (404): The requested job ID does not exist.
+- `validation_error` (400/422): Invalid input data or URL format.
+- `upload_error` (400): Failed to save or process the uploaded file.
+- `internal_server_error` (500): Unexpected backend failure.
+
 ## Note
 This is an initial scaffold. Model integration, job orchestration, Gemini integration, yt-dlp, and danger scoring will be added in later branches.
