@@ -83,6 +83,10 @@ uvicorn app.main:app --reload
   ```bash
   python -c "from app.adapters import BaseModelAdapter, RawModelOutput; output=RawModelOutput(duration_seconds=10.0, timestamps=[0.0, 5.0, 10.0], roi_activations={'V1':[0.1,0.5,0.2],'V2':[0.1,0.4,0.2],'V3':[0.1,0.3,0.2],'V4':[0.1,0.2,0.2],'MT+':[0.1,0.6,0.2]}, model_name='test-model', model_provider='demo'); print(output.model_name, output.roi_activations['MT+'][1])"
   ```
+- **Demo Model Adapter Test:**
+  ```bash
+  python -c "import asyncio; from app.adapters import demo_model_adapter; output=asyncio.run(demo_model_adapter.analyze_video('demo.mp4')); print(output.model_name, output.model_provider, output.duration_seconds); print(len(output.timestamps), len(output.roi_activations['V1'])); print(max(output.roi_activations['V1']), max(output.roi_activations['MT+']))"
+  ```
 
 ## Note
 This is an initial scaffold. Model integration, job orchestration, Gemini integration, yt-dlp, and danger scoring will be added in later branches.
