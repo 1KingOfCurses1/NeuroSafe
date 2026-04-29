@@ -24,6 +24,7 @@ async def _run_youtube_analysis_task(job_id: str, url: str):
     """
     Background task to download YouTube video and then run analysis.
     """
+    video_path = None
     try:
         # 1. Update status: Downloading
         job_store.update_job(
@@ -49,7 +50,7 @@ async def _run_youtube_analysis_task(job_id: str, url: str):
             # We continue anyway to keep the hackathon demo resilient
 
         # 3. Run Analysis Orchestrator
-        await analysis_orchestrator.run_demo_analysis(job_id)
+        await analysis_orchestrator.run_demo_analysis(job_id, video_path=video_path)
 
     except Exception as e:
         logger.error(f"Background task failed for job {job_id}: {e}")
@@ -79,6 +80,7 @@ async def analyze_upload(
     )
 
     # 3. Save File
+    file_path = None
     try:
         upload_dir = Path(settings.UPLOAD_DIR)
         upload_dir.mkdir(parents=True, exist_ok=True)
@@ -93,7 +95,7 @@ async def analyze_upload(
         raise UploadAPIError(message=f"Could not save file: {e}")
 
     # 4. Start Background Analysis
-    background_tasks.add_task(analysis_orchestrator.run_demo_analysis, job.job_id)
+    background_tasks.add_task(analysis_orchestrator.run_demo_analysis, job.job_id, video_path=str(file_path))
 
     return JobCreateResponse(
         job_id=job.job_id,
