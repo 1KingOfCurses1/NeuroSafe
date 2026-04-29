@@ -48,6 +48,17 @@ NeuroSafe defaults to **Demo Mode** (`MODEL_PROVIDER=demo`).
 - **No API Keys Required**: Works without Gemini or Hugging Face tokens.
 - **Deterministic Results**: Returns realistic, synchronized activation data for MT+, V1, V2, V3, and V4 regions.
 - **Fallback Support**: Gracefully handles missing `ffprobe` or failed YouTube downloads by using safe defaults.
+- **Robust Fallbacks**: 
+    - If `ffprobe` is missing, defaults to 1080p/30fps metadata.
+    - If `yt-dlp` fails, falls back to demo analysis data.
+    - If `GEMINI_API_KEY` is missing, uses a local rule-based report generator.
+
+## Configuration Validation
+The backend performs lightweight environment validation on startup to ensure a smooth demo experience:
+- **`MODEL_PROVIDER` Fallback**: If an invalid provider is specified, the system automatically falls back to `demo` mode with a warning log.
+- **Dependency Checks**: Checks for missing Hugging Face tokens or Gemini API keys and announces the active feature set in the console.
+- **Storage Auto-Provisioning**: Automatically creates the `UPLOAD_DIR` if it doesn't exist.
+- **Visibility**: Use the `/api/analyze/demo/config` endpoint to view a summary of the current configuration and any active warnings.
 
 ## API Endpoints
 
@@ -112,6 +123,7 @@ python scripts/demo_flow.py youtube
 python scripts/demo_flow.py upload
 ```
 
+```bash
 docker run --rm -p 8000:8000 --env-file .env neurosafe-backend
 ```
 

@@ -156,15 +156,19 @@ async def get_demo_config():
     Returns the current demo mode configuration.
     Useful for judges and teammates to verify the environment.
     """
+    summary = settings.validate_runtime_config()
     return {
-        "model_provider": settings.MODEL_PROVIDER,
-        "is_demo_mode": settings.is_demo_mode,
-        "external_services_required": False if settings.is_demo_mode else True,
+        "model_provider": summary["model_provider"],
+        "is_demo_mode": summary["demo_mode"],
+        "huggingface_configured": summary["huggingface_configured"],
+        "gemini_configured": summary["gemini_configured"],
+        "external_services_required": not summary["demo_mode"],
         "features": {
             "file_upload": True,
             "youtube_url": True,
             "websocket_progress": True,
-            "deterministic_results": settings.is_demo_mode,
-            "gemini_reports": "active" if settings.GEMINI_API_KEY else "fallback_mode"
-        }
+            "deterministic_results": summary["demo_mode"],
+            "gemini_reports": "active" if summary["gemini_configured"] else "fallback_mode"
+        },
+        "warnings": summary["warnings"]
     }

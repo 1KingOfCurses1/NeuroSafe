@@ -1,9 +1,10 @@
 import logging
-from typing import List, Union, Any
+import os
+from typing import List, Union, Any, Dict
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import Field, field_validator
 
-# Setup basic logging to show mode on startup
+# Setup basic logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -22,7 +23,6 @@ class Settings(BaseSettings):
     UPLOAD_DIR: str = "./uploads"
     
     # CORS Configuration
-    # We use Union[List[str], str] to allow comma-separated strings from env vars
     ALLOWED_ORIGINS: Union[List[str], str] = [
         "http://localhost:5173", 
         "http://localhost:5174", 
@@ -36,21 +36,62 @@ class Settings(BaseSettings):
             return [i.strip() for i in v.split(",")]
         elif isinstance(v, list):
             return v
-        return v # Let pydantic handle other cases or throw error
+        return v
+
+    @field_validator("MODEL_PROVIDER", mode="before")
+    @classmethod
+    def validate_provider(cls, v: str) -> str:
+        allowed = ["demo", "huggingface"]
+        if v.lower() not in allowed:
+            # We don't raise error, we fallback to demo for reliability
+            return "demo"
+        return v.lower()
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     @property
     def is_demo_mode(self) -> bool:
-        return self.MODEL_PROVIDER.lower() == "demo"
+        return self.MODEL_PROVIDER == "demo"
 
     @property
     def is_huggingface_mode(self) -> bool:
-        return self.MODEL_PROVIDER.lower() == "huggingface"
+        return self.MODEL_PROVIDER == "huggingface"
+
+    def validate_runtime_config(self) -> Dict[str, Any]:
+        """
+        Performs lightweight runtime validation and returns a summary.
+        Ensures UPLOAD_DIR exists and checks for missing optional keys.
+        """
+        warnings = []
+        
+        # 1. Check Model Provider
+        if self.is_huggingface_mode:
+            if not self.HF_API_URL or not self.HF_API_TOKEN:
+                warnings.append("MODEL_PROVIDER is set to 'huggingface' but HF_API_URL or HF_API_TOKEN is missing.")
+        
+        # 2. Check Gemini
+        if not self.GEMINI_API_KEY:
+            warnings.append("GEMINI_API_KEY is missing. Clinical reports will use local fallback generator.")
+
+        # 3. Check/Create Upload Dir
+        try:
+            if not os.path.exists(self.UPLOAD_DIR):
+                os.makedirs(self.UPLOAD_DIR, exist_ok=True)
+                logger.info(f"Created upload directory: {self.UPLOAD_DIR}")
+        except Exception as e:
+            warnings.append(f"Could not create/access UPLOAD_DIR '{self.UPLOAD_DIR}': {e}")
+
+        # 4. Check Origins
+        if not self.ALLOWED_ORIGINS:
+            warnings.append("ALLOWED_ORIGINS is empty. CORS may block frontend requests.")
+
+        return {
+            "model_provider": self.MODEL_PROVIDER,
+            "demo_mode": self.is_demo_mode,
+            "huggingface_configured": bool(self.HF_API_URL and self.HF_API_TOKEN),
+            "gemini_configured": bool(self.GEMINI_API_KEY),
+            "upload_dir": self.UPLOAD_DIR,
+            "warnings": warnings
+        }
 
 settings = Settings()
-
-# Log active provider on startup
-logger.info(f"NeuroSafe Backend initialized with MODEL_PROVIDER={settings.MODEL_PROVIDER}")
-if settings.is_demo_mode:
-    logger.info("Demo mode is ACTIVE. External API keys are not required.")
