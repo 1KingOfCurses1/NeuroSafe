@@ -1,3 +1,4 @@
 from app.adapters.base import BaseModelAdapter, RawModelOutput
+from app.adapters.demo_adapter import demo_model_adapter
 
-__all__ = ["BaseModelAdapter", "RawModelOutput"]
+__all__ = ["BaseModelAdapter", "RawModelOutput", "demo_model_adapter"]
