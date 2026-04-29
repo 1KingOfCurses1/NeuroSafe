@@ -91,6 +91,10 @@ uvicorn app.main:app --reload
   ```bash
   python -c "from app.adapters import huggingface_model_adapter; print(huggingface_model_adapter.provider_name, huggingface_model_adapter.model_name)"
   ```
+- **Danger Scoring Service Test:**
+  ```bash
+  python -c "import asyncio; from app.adapters import demo_model_adapter; from app.services.danger_scoring import danger_scoring_service; output=asyncio.run(demo_model_adapter.analyze_video('demo.mp4')); score, summary, segments=danger_scoring_service.score_model_output(output); print(f'Score: {score}', f'Severity: {summary.severity}', f'Segments: {summary.segments_detected}'); print(f'First Segment: {segments[0].roi} at {segments[0].start_time}s, Peak: {segments[0].activation_level}')"
+  ```
 
 ## Note
 This is an initial scaffold. Model integration, job orchestration, Gemini integration, yt-dlp, and danger scoring will be added in later branches.
