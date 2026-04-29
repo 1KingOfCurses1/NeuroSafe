@@ -107,6 +107,14 @@ uvicorn app.main:app --reload
   ```bash
   python -c "from app.services.video_metadata import video_metadata_service; meta=video_metadata_service.extract_metadata('missing-file.mp4'); print(meta.filename, meta.duration_seconds, meta.fps, meta.resolution)"
   ```
+- **YouTube Analysis Test:**
+  ```bash
+  # Submit job
+  curl.exe -X POST http://localhost:8000/api/analyze/youtube -H "Content-Type: application/json" -d "{\"url\":\"https://www.youtube.com/watch?v=dQw4w9WgXcQ\"}"
+  
+  # Poll status (replace JOB_ID)
+  curl.exe http://localhost:8000/api/analyze/job_abc123
+  ```
 - **WebSocket Real-time Progress Test:**
   1. Start the backend: `python -m uvicorn app.main:app --reload`
   2. In a new terminal, create a job and copy the `job_id`:

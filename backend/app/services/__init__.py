@@ -4,6 +4,7 @@ from app.services.danger_scoring import danger_scoring_service
 from app.services.result_formatter import result_formatter
 from app.services.gemini_service import gemini_report_service
 from app.services.video_metadata import video_metadata_service
+from app.services.youtube_downloader import youtube_downloader_service
 
 __all__ = [
     "job_store", 
@@ -12,5 +13,6 @@ __all__ = [
     "danger_scoring_service", 
     "result_formatter",
     "gemini_report_service",
-    "video_metadata_service"
+    "video_metadata_service",
+    "youtube_downloader_service"
 ]
