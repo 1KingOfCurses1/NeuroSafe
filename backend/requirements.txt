@@ -4,3 +4,4 @@ pydantic
 pydantic-settings
 python-multipart
 websockets
+google-generativeai
