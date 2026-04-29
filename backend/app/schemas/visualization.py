@@ -1,5 +1,6 @@
 from typing import List, Dict, Optional
-from pydantic import BaseModel, Field
+from datetime import datetime
+from pydantic import BaseModel, Field, ConfigDict
 from app.schemas.jobs import JobStatus
 
 class BrainFrame(BaseModel):
@@ -19,5 +20,7 @@ class ProgressEvent(BaseModel):
     status: JobStatus
     progress: int
     message: str
-    timestamp: Optional[str] = None
+    timestamp: Optional[datetime] = None
     brain_frame: Optional[BrainFrame] = None
+
+    model_config = ConfigDict(from_attributes=True)
