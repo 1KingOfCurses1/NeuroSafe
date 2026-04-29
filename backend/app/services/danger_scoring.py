@@ -1,6 +1,9 @@
+import logging
 from typing import List, Tuple, Dict
 from app.adapters.base import RawModelOutput
 from app.schemas.analysis import DangerSegment, AnalysisSummary
+
+logger = logging.getLogger(__name__)
 
 class DangerScoringService:
     """
@@ -11,7 +14,11 @@ class DangerScoringService:
     def __init__(self, danger_threshold: float = 2.0):
         self.danger_threshold = danger_threshold
 
-    def score_model_output(self, output: RawModelOutput) -> Tuple[int, AnalysisSummary, List[DangerSegment]]:
+    def score_model_output(
+        self, 
+        output: RawModelOutput,
+        job_id: str = "unknown"
+    ) -> Tuple[int, AnalysisSummary, List[DangerSegment]]:
         if not output.timestamps:
             return 0, AnalysisSummary(severity="low", segments_detected=0, total_danger_duration_seconds=0), []
 
@@ -49,6 +56,7 @@ class DangerScoringService:
             total_danger_duration_seconds=round(total_duration, 2)
         )
 
+        logger.info(f"Job {job_id}: Scoring complete. Final score: {score}, Severity: {severity}, Segments detected: {total_segments}")
         return score, summary, segments
 
     def _detect_segments(self, output: RawModelOutput) -> List[DangerSegment]:

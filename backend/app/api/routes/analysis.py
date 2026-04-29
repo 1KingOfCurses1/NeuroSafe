@@ -78,6 +78,7 @@ async def analyze_upload(
         source_name=file.filename,
         message="Video accepted. Analysis starting..."
     )
+    logger.info(f"Job {job.job_id}: Created for file upload: {file.filename}")
 
     # 3. Save File
     file_path = None
@@ -87,14 +88,17 @@ async def analyze_upload(
         
         file_path = upload_dir / f"{job.job_id}_{file.filename}"
         
+        logger.info(f"Job {job.job_id}: Saving uploaded file to {file_path}")
         with file_path.open("wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
+        logger.info(f"Job {job.job_id}: File saved successfully.")
             
     except Exception as e:
         job_store.fail_job(job.job_id, error=str(e), message="Failed to save uploaded file")
         raise UploadAPIError(message=f"Could not save file: {e}")
 
     # 4. Start Background Analysis
+    logger.info(f"Job {job.job_id}: Dispatching background analysis task.")
     background_tasks.add_task(analysis_orchestrator.run_demo_analysis, job.job_id, video_path=str(file_path))
 
     return JobCreateResponse(
@@ -125,8 +129,10 @@ async def analyze_youtube(
         source_name=request.url,
         message="YouTube URL accepted. Queuing download..."
     )
+    logger.info(f"Job {job.job_id}: Created for YouTube URL: {request.url}")
 
     # 3. Start Background Download & Analysis
+    logger.info(f"Job {job.job_id}: Dispatching background download and analysis task.")
     background_tasks.add_task(_run_youtube_analysis_task, job.job_id, request.url)
 
     return JobCreateResponse(

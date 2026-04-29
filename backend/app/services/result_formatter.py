@@ -1,3 +1,4 @@
+import logging
 from typing import List, Optional, Dict
 from app.adapters.base import RawModelOutput
 from app.schemas.jobs import JobStatus
@@ -10,6 +11,8 @@ from app.schemas.analysis import (
 )
 from app.schemas.reports import GeminiReport
 from app.schemas.visualization import BrainFrame, BrainVisualizationPayload
+
+logger = logging.getLogger(__name__)
 
 class ResultFormatter:
     """
@@ -27,6 +30,7 @@ class ResultFormatter:
         video_metadata: Optional[VideoMetadata] = None,
         report: Optional[GeminiReport] = None,
     ) -> AnalysisResult:
+        logger.info(f"Job {job_id}: Formatting analysis results...")
         
         if not model_output.timestamps:
             raise ValueError("Model output timestamps list is empty.")
@@ -94,7 +98,7 @@ class ResultFormatter:
             timestamp_unit="seconds"
         )
 
-        return AnalysisResult(
+        result = AnalysisResult(
             job_id=job_id,
             status=JobStatus.COMPLETED,
             video=video_metadata,
@@ -105,6 +109,8 @@ class ResultFormatter:
             gemini_report=report,
             brain_visualization=visualization
         )
+        logger.info(f"Job {job_id}: Result payload synchronized and formatted.")
+        return result
 
     def _generate_fallback_report(self, score: int, segments: List[DangerSegment]) -> GeminiReport:
         if score >= 70:

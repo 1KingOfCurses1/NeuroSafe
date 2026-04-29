@@ -26,6 +26,7 @@ class AnalysisOrchestrator:
         If video_path is provided, it attempts to extract real metadata, 
         otherwise falls back to demo defaults.
         """
+        logger.info(f"Starting analysis pipeline for job {job_id}")
         try:
             # 1. Stage: Extracting Metadata (15%)
             job_store.update_job(
@@ -36,7 +37,9 @@ class AnalysisOrchestrator:
             )
             # Use real file if it exists, otherwise extract_metadata handles fallback
             path_to_extract = video_path if video_path and os.path.exists(video_path) else "demo.mp4"
+            logger.info(f"Job {job_id}: Extracting metadata from {path_to_extract}")
             metadata = video_metadata_service.extract_metadata(path_to_extract)
+            logger.info(f"Job {job_id}: Metadata extracted successfully ({metadata.duration_seconds}s, {metadata.resolution})")
             await asyncio.sleep(0.5) # Simulate slight delay for UI
 
             # 2. Stage: Running Model Inference (40%)
@@ -47,7 +50,9 @@ class AnalysisOrchestrator:
                 message="Running TRIBE model inference on visual cortex (V1-V4, MT+)..."
             )
             # demo_model_adapter always returns deterministic data
+            logger.info(f"Job {job_id}: Running model inference...")
             raw_output = await demo_model_adapter.analyze_video(path_to_extract)
+            logger.info(f"Job {job_id}: Model inference complete.")
             await asyncio.sleep(0.5)
 
             # 3. Stage: Scoring Danger (65%)
@@ -57,7 +62,9 @@ class AnalysisOrchestrator:
                 progress=65, 
                 message="Calculating seizure risk scores and detecting danger segments..."
             )
-            score, summary, danger_segments = danger_scoring_service.score_model_output(raw_output)
+            logger.info(f"Job {job_id}: Scoring model output...")
+            score, summary, danger_segments = danger_scoring_service.score_model_output(raw_output, job_id=job_id)
+            logger.info(f"Job {job_id}: Scoring complete (Score: {score}, Severity: {summary.severity})")
             await asyncio.sleep(0.5)
 
             # 4. Stage: Generating Report (85%)
@@ -67,12 +74,15 @@ class AnalysisOrchestrator:
                 progress=85, 
                 message="Generating Gemini clinical content-safety report..."
             )
+            logger.info(f"Job {job_id}: Generating clinical report...")
             report = await gemini_report_service.generate_report(
                 danger_score=score,
                 summary=summary,
                 danger_segments=danger_segments,
+                job_id=job_id,
                 video_metadata=metadata
             )
+            logger.info(f"Job {job_id}: Report generation complete.")
             await asyncio.sleep(0.5)
 
             # 5. Stage: Formatting Results (95%)
@@ -82,6 +92,7 @@ class AnalysisOrchestrator:
                 progress=95, 
                 message="Finalizing 3D brain visualization and result payload..."
             )
+            logger.info(f"Job {job_id}: Formatting final results...")
             result = result_formatter.format_analysis_result(
                 job_id=job_id,
                 model_output=raw_output,
@@ -91,6 +102,7 @@ class AnalysisOrchestrator:
                 report=report,
                 video_metadata=metadata
             )
+            logger.info(f"Job {job_id}: Formatting complete.")
             
             # 6. Finalize: Completed (100%)
             job_store.set_result(job_id, result)
