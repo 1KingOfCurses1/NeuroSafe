@@ -1,11 +1,13 @@
 import asyncio
 import logging
 import os
+from pathlib import Path
 from typing import Optional
 from app.core.config import settings
 from app.services.job_store import job_store
 from app.schemas.jobs import JobStatus
 from app.schemas.analysis import AnalysisResult
+from app.adapters import demo_model_adapter, tribe_v2_adapter, local_cv_adapter
 from app.services.danger_scoring import danger_scoring_service
 from app.services.result_formatter import result_formatter
 from app.services.gemini_service import gemini_report_service
@@ -19,6 +21,39 @@ class AnalysisOrchestrator:
     specialized services for metadata extraction, model inference, 
     risk scoring, and report generation.
     """
+
+    async def _cleanup_artifacts(self, video_path: Optional[str], job_id: str) -> None:
+        """
+        Best-effort cleanup for per-job media artifacts generated during analysis.
+        Keeps the workspace from accumulating uploaded videos, extracted audio,
+        and transcription sidecar files across runs.
+        """
+        if not video_path:
+            return
+
+        path = Path(video_path)
+        candidates = {path}
+        candidates.update(path.parent.glob(f"{path.stem}.*"))
+
+        for candidate in candidates:
+            for attempt in range(3):
+                try:
+                    if candidate.exists() and candidate.is_file():
+                        candidate.unlink()
+                        logger.info(f"Job {job_id}: Removed artifact {candidate}")
+                    break
+                except PermissionError as exc:
+                    if attempt == 2:
+                        logger.warning(
+                            f"Job {job_id}: Failed to remove artifact {candidate}: {exc}"
+                        )
+                    else:
+                        await asyncio.sleep(0.5)
+                except Exception as exc:
+                    logger.warning(
+                        f"Job {job_id}: Failed to remove artifact {candidate}: {exc}"
+                    )
+                    break
 
     async def run_demo_analysis(self, job_id: str, video_path: Optional[str] = None) -> AnalysisResult:
         """
@@ -41,9 +76,6 @@ class AnalysisOrchestrator:
             metadata = video_metadata_service.extract_metadata(path_to_extract)
             logger.info(f"Job {job_id}: Metadata extracted successfully ({metadata.duration_seconds}s, {metadata.resolution})")
             await asyncio.sleep(0.1) # Brief yield for UI
-
-            # Lazy imports to avoid circular dependency
-            from app.adapters import demo_model_adapter, tribe_v2_adapter, local_cv_adapter
 
             # 2. Stage: Running Model Inference (40%)
             if settings.MODEL_PROVIDER == "local_cv":
@@ -71,33 +103,54 @@ class AnalysisOrchestrator:
                 progress=40,
                 message=f"Running {inference_label} on visual cortex (V1-V4, MT+)..."
             )
-            
+
             fallback_used = False
             fallback_reason = None
             inference_source = "demo_primary"
-            
+
             try:
                 logger.info(f"Job {job_id}: Attempting inference via {primary_adapter.__class__.__name__} ({primary_adapter.provider_name})")
                 raw_output = await primary_adapter.analyze_video(path_to_extract, job_id=job_id)
-                
+
                 if primary_adapter.provider_name == "local_cv":
                     inference_source = "local_cv"
                 elif primary_adapter.provider_name == "tribev2":
                     inference_source = "local_tribev2"
                 elif primary_adapter.provider_name == "huggingface":
                     inference_source = "hf_endpoint"
+            except SystemExit as exc:
+                if primary_adapter is demo_model_adapter:
+                    raise RuntimeError(
+                        f"Demo inference aborted unexpectedly: exit code {exc.code}"
+                    ) from exc
+
+                fallback_used = True
+                fallback_reason = f"SystemExit({exc.code})"
+                inference_source = "demo_fallback"
+
+                logger.warning(
+                    f"!!! FALLBACK DETECTED !!! Job {job_id}: Primary adapter {primary_adapter.provider_name} "
+                    f"triggered SystemExit ({exc.code}). Falling back to DemoModelAdapter.",
+                    exc_info=True,
+                )
+                job_store.update_job(
+                    job_id,
+                    message="Advanced inference aborted during dependency setup. Falling back to demo analysis.",
+                )
+                raw_output = await demo_model_adapter.analyze_video(path_to_extract, job_id=job_id)
+                logger.info(f"Job {job_id}: Fallback inference completed via DemoModelAdapter.")
             except Exception as e:
-                if primary_adapter.provider_name == "demo":
-                    raise e
-                
+                if primary_adapter is demo_model_adapter:
+                    raise
+
                 # CRITICAL: Clear logging for fallback as requested by user
                 fallback_used = True
                 fallback_reason = str(e)
                 inference_source = "demo_fallback"
-                
+
                 logger.warning(f"!!! FALLBACK DETECTED !!! Job {job_id}: Primary adapter {primary_adapter.provider_name} FAILED with error: {str(e)}")
                 logger.warning(f"Job {job_id}: Falling back to DemoModelAdapter for safety.")
-                
+
                 job_store.update_job(
                     job_id,
                     message=f"Warning: Real model failed ({e}). Falling back to demo mode."
@@ -115,6 +168,15 @@ class AnalysisOrchestrator:
             }
 
             logger.info(f"Job {job_id}: Model inference stage complete.")
+
+            # 3. Stage: Scoring Danger (65%)
+            job_store.update_job(
+                job_id,
+                status=JobStatus.SCORING_DANGER,
+                progress=65,
+                message="Calculating seizure risk scores and detecting danger segments..."
+            )
+            logger.info(f"Job {job_id}: Scoring model output...")
             score, summary, danger_segments = danger_scoring_service.score_model_output(raw_output, job_id=job_id)
             logger.info(f"Job {job_id}: Scoring complete (Score: {score}, Severity: {summary.severity})")
             await asyncio.sleep(0.1)
@@ -166,5 +228,7 @@ class AnalysisOrchestrator:
             logger.error(f"Analysis pipeline failed for job {job_id}: {str(e)}", exc_info=True)
             job_store.fail_job(job_id, error=str(e), message="Analysis failed during orchestration")
             raise e
+        finally:
+            await self._cleanup_artifacts(video_path, job_id)
 
 analysis_orchestrator = AnalysisOrchestrator()
