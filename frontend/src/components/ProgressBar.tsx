@@ -20,27 +20,37 @@ const STAGE_LABELS: Partial<Record<JobStatus, string>> = {
 
 export function ProgressBar({ progress, status, message }: ProgressBarProps) {
   const barColor =
-    status === 'completed' ? 'bg-emerald-500' :
-    status === 'failed'    ? 'bg-red-500' :
-                             'bg-blue-500'
+    status === 'completed' ? 'bg-clinical-teal shadow-[0_0_10px_rgba(0,169,157,0.5)]' :
+    status === 'failed'    ? 'bg-danger-red shadow-[0_0_10px_rgba(255,76,76,0.5)]' :
+                             'bg-clinical-teal shadow-[0_0_10px_rgba(0,169,157,0.5)]'
 
   return (
-    <div className="w-full space-y-2">
-      <div className="flex justify-between items-center text-sm">
-        <span className="text-slate-300 font-medium">
+    <div className="w-full space-y-3">
+      <div className="flex justify-between items-center text-sm font-medium">
+        <span className={`tracking-wide ${status === 'failed' ? 'text-danger-red' : 'text-soft-white/90'}`}>
           {STAGE_LABELS[status] ?? status}
         </span>
-        <span className="text-slate-400">{progress}%</span>
+        <span className="text-soft-white/60 font-mono text-xs">{progress}%</span>
       </div>
-      <div className="h-2 w-full bg-slate-800 rounded-full overflow-hidden">
+      
+      <div className="h-1.5 w-full bg-deep-navy/30 rounded-full overflow-hidden border border-white/5">
         <div
-          className={`h-full rounded-full transition-all duration-500 ${barColor}`}
+          className={`h-full rounded-full transition-all duration-500 ease-out relative ${barColor}`}
           style={{ width: `${progress}%` }}
-        />
+        >
+          {status !== 'completed' && status !== 'failed' && (
+             <div className="absolute inset-0 bg-white/20 animate-pulse"></div>
+          )}
+        </div>
       </div>
-      {message && (
-        <p className="text-xs text-slate-500 truncate">{message}</p>
-      )}
+
+      <div className="h-4">
+        {message && (
+          <p className="text-xs text-soft-white/40 truncate font-mono tracking-tight animate-pulse-fast">
+            {'>'} {message}
+          </p>
+        )}
+      </div>
     </div>
   )
 }

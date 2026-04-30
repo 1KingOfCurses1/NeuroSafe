@@ -3,6 +3,7 @@ import { useAnalysisJob } from './hooks/useAnalysisJob'
 import { UploadPage } from './pages/UploadPage'
 import { ResultsPage } from './pages/ResultsPage'
 import { ProgressBar } from './components/ProgressBar'
+import { Footer } from './components/Footer'
 
 type View = 'upload' | 'analyzing' | 'results'
 
@@ -31,21 +32,30 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center px-4">
-      <div className="w-full max-w-md space-y-8">
-        <div className="text-center space-y-2">
-          <h1 className="text-2xl font-bold tracking-tight">
-            Neuro<span className="text-blue-400">Safe</span>
+    <div className="relative min-h-screen bg-[#000000] text-soft-white flex flex-col overflow-hidden selection:bg-clinical-teal/30">
+      
+      {/* Background Glow */}
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-clinical-teal/10 blur-[100px] rounded-full opacity-60 pointer-events-none"></div>
+
+      <div className="relative z-10 w-full max-w-md space-y-10 flex-1 flex flex-col justify-center mx-auto px-4 py-20">
+        <div className="text-center space-y-4">
+          <h1 className="text-3xl font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-b from-white to-white/60">
+            Analyzing Content
           </h1>
-          <p className="text-slate-400 text-sm">Running cortical safety analysis…</p>
+          <p className="text-clinical-teal/80 text-xs font-mono tracking-widest uppercase">
+            In-Silico Neural Simulation Active
+          </p>
         </div>
 
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+        <div className="bg-[#0A0A0B]/90 backdrop-blur-xl border border-white/10 rounded-2xl p-8 shadow-2xl relative overflow-hidden">
+          {/* Subtle moving light effect on top of card */}
+          <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-clinical-teal to-transparent opacity-50"></div>
+          
           <ProgressBar progress={progress} status={status} message={message} />
         </div>
 
         {error && (
-          <div className="bg-red-950/40 border border-red-800 rounded-xl px-4 py-3 text-sm text-red-300 text-center">
+          <div className="bg-danger-red/10 border border-danger-red/20 rounded-xl px-5 py-4 text-sm text-danger-red font-medium text-center shadow-[0_0_20px_rgba(255,76,76,0.1)]">
             {error}
           </div>
         )}
@@ -53,11 +63,15 @@ export default function App() {
         {(status === 'failed' || error) && (
           <button
             onClick={handleReset}
-            className="w-full py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-sm text-slate-300 transition-colors"
+            className="w-full py-3.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-sm font-medium text-soft-white transition-all focus:outline-none focus:ring-2 focus:ring-white/20 backdrop-blur-sm"
           >
-            Try Again
+            Reset Analysis
           </button>
         )}
+      </div>
+
+      <div className="relative z-10 w-full mt-auto">
+        <Footer />
       </div>
     </div>
   )

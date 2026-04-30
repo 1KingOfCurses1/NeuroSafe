@@ -21,6 +21,7 @@ In both cases the adapter:
 import asyncio
 import base64
 import logging
+import pathlib
 import tempfile
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -44,6 +45,23 @@ try:
 except ImportError:
     _TribeModel = None
     HAS_TRIBE_PACKAGE = False
+
+
+class _WindowsSafePosixPath:
+    """
+    TRIBE v2's YAML config can contain serialized pathlib.PosixPath objects.
+    Those cannot be instantiated on Windows, so temporarily map them to a
+    platform-agnostic path type while loading the pretrained config.
+    """
+
+    def __enter__(self):
+        self._original = pathlib.PosixPath
+        pathlib.PosixPath = pathlib.Path
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        pathlib.PosixPath = self._original
+        return False
 
 
 class TRIBEv2Adapter(BaseModelAdapter):
@@ -140,11 +158,12 @@ class TRIBEv2Adapter(BaseModelAdapter):
         # Load model once and cache it
         if self._model is None:
             logger.info(f"Job {job_id}: Loading TribeModel from '{self.model_name}'...")
-            model = await asyncio.to_thread(
-                _TribeModel.from_pretrained,
-                self.model_name,
-                cache_folder="./cache",
-            )
+            with _WindowsSafePosixPath():
+                model = await asyncio.to_thread(
+                    _TribeModel.from_pretrained,
+                    self.model_name,
+                    cache_folder="./cache",
+                )
             if use_gpu:
                 model = model.half().cuda()
                 logger.info(f"Job {job_id}: Model loaded on GPU in float16.")

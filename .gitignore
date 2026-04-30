@@ -34,11 +34,17 @@ backend/generated/
 generated/
 backend/tmp/
 tmp/
+backend/cache/
+cache/
 *.mp4
 *.mov
 *.avi
 *.mkv
 *.webm
+*.wav
+*.tsv
+*.ckpt
+*.yaml
 
 # Logs
 *.log
@@ -63,3 +69,9 @@ out/
 build/
 dist/
 coverage/
+.uv/
+
+# Local model clones / temporary research
+backend/temp_tribev2/
+temp_tribev2/
+docs/
