@@ -154,6 +154,7 @@ class TRIBEv2Adapter(BaseModelAdapter):
     ) -> Tuple[np.ndarray, List[float], int]:
         import torch
 
+        # Use GPU if available (Blackwell support expected in recent torch builds)
         use_gpu = torch.cuda.is_available()
         device_label = "GPU (FP16)" if use_gpu else "CPU (float32)"
         logger.info(f"Job {job_id}: Running TRIBE v2 local inference on {device_label}...")
@@ -165,12 +166,15 @@ class TRIBEv2Adapter(BaseModelAdapter):
                 model = await asyncio.to_thread(
                     _TribeModel.from_pretrained,
                     self.model_name,
+                    device="cuda" if use_gpu else "cpu",
                     cache_folder="./cache",
-                    config_update={"data.text_feature.model_name": "unsloth/Llama-3.2-3B-Instruct"}
+                    config_update={
+                        "data.text_feature.model_name": "unsloth/Llama-3.2-3B-Instruct",
+                        "data.text_feature.device": "cuda" if use_gpu else "cpu"
+                    }
                 )
             if use_gpu:
-                # model = model.half().cuda()
-                logger.info(f"Job {job_id}: Model loaded on GPU in float16.")
+                logger.info(f"Job {job_id}: Model loaded on GPU.")
             else:
                 logger.warning(
                     f"Job {job_id}: No CUDA GPU detected — running on CPU in float32. "
@@ -194,10 +198,10 @@ class TRIBEv2Adapter(BaseModelAdapter):
         # Run prediction — use autocast for FP16 on GPU
         logger.info(f"Job {job_id}: Running model.predict() on {device_label}...")
         if use_gpu:
-            with torch.amp.autocast('cuda', dtype=torch.float16):
-                preds_raw, _segments = await asyncio.to_thread(
-                    model.predict, events=df
-                )
+            def _predict_with_autocast():
+                with torch.amp.autocast('cuda', dtype=torch.float16):
+                    return model.predict(events=df)
+            preds_raw, _segments = await asyncio.to_thread(_predict_with_autocast)
         else:
             preds_raw, _segments = await asyncio.to_thread(
                 model.predict, events=df
