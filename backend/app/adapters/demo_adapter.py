@@ -24,7 +24,7 @@ class DemoModelAdapter(BaseModelAdapter):
 
     @property
     def model_name(self) -> str:
-        return "neurosafe-demo-flash-detector"
+        return "neurosafe-demo-adapter"
 
     # ------------------------------------------------------------------
     # Main entry point

@@ -51,15 +51,28 @@ Defined in `.env.example`:
 - `UPLOAD_DIR`: Local path for video storage (default: `./uploads`).
 - `ALLOWED_ORIGINS`: CORS configuration for the React frontend.
 
-## Demo Mode
-NeuroSafe defaults to **Demo Mode** (`MODEL_PROVIDER=demo`).
-- **No API Keys Required**: Works without Gemini or Hugging Face tokens.
-- **Deterministic Results**: Returns realistic, synchronized activation data for MT+, V1, V2, V3, and V4 regions.
-- **Fallback Support**: Gracefully handles missing `ffprobe` or failed YouTube downloads by using safe defaults.
-- **Robust Fallbacks**: 
-    - If `ffprobe` is missing, defaults to 1080p/30fps metadata.
-    - If `yt-dlp` fails, falls back to demo analysis data.
-    - If `GEMINI_API_KEY` is missing, uses a local rule-based report generator.
+## Model Providers
+NeuroSafe supports multiple execution paths for brain encoding:
+
+1. **Demo Mode** (`MODEL_PROVIDER=demo`):
+   - **No API Keys Required**: Works out-of-the-box for hackathon judging.
+   - **Deterministic Results**: Performs lightweight flash detection on the video to generate realistic activation patterns.
+
+2. **Local CV Analyzer** (`MODEL_PROVIDER=local_cv`):
+   - **Recommended for Local Use**: Performs real frame-by-frame analysis of photosensitivity triggers (luminance, red flashes, motion, contrast).
+   - **No GPU Required**: Runs efficiently on CPU with standard Python libraries (`OpenCV`, `imageio`).
+   - **Content-Dependent**: Unlike Demo Mode, results directly reflect the uploaded video content.
+
+3. **Real TRIBE v2** (`MODEL_PROVIDER=tribev2`):
+   - **Local Repo Integration**: Directly imports and calls the TRIBE v2 foundation model.
+   - **Configuration**: Set `TRIBEV2_LOCAL_REPO_PATH` to your local clone of the TRIBE v2 repository.
+   - **Performance**: CUDA/GPU is highly recommended; CPU inference will be significantly slower.
+   - **Robustness**: Automatically falls back to Demo Mode if the model fails to load or run.
+
+## Robust Fallbacks
+- If `MODEL_PROVIDER=local_cv` or `tribev2` fails, the system falls back to **Demo Mode**. The logs will explicitly show `!!! FALLBACK DETECTED !!!`.
+- If `ffprobe` is missing, defaults to 1080p/30fps metadata.
+- If `GEMINI_API_KEY` is missing, uses a local rule-based report generator.
 
 ## Configuration Validation
 The backend performs lightweight environment validation on startup to ensure a smooth demo experience:

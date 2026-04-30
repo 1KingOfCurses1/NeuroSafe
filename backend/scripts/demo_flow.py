@@ -5,7 +5,7 @@ import time
 import sys
 import os
 
-BASE_URL = "http://localhost:8001"
+BASE_URL = "http://localhost:8000"
 
 def submit_youtube(url):
     print(f"\n[1/3] Submitting YouTube URL: {url}")

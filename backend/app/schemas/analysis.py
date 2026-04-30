@@ -45,6 +45,13 @@ class RoiTimeSeries(BaseModel):
 
     model_config = ConfigDict(populate_by_name=True)
 
+class ModelProvenance(BaseModel):
+    model_provider: str
+    model_name: str
+    inference_source: str
+    fallback_used: bool
+    fallback_reason: Optional[str] = None
+
 class AnalysisResult(BaseModel):
     job_id: str
     status: JobStatus
@@ -55,3 +62,4 @@ class AnalysisResult(BaseModel):
     roi_timeseries: RoiTimeSeries
     gemini_report: GeminiReport
     brain_visualization: Optional[BrainVisualizationPayload] = None
+    provenance: Optional[ModelProvenance] = None

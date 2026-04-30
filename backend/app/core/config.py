@@ -11,11 +11,15 @@ logger = logging.getLogger(__name__)
 class Settings(BaseSettings):
     APP_ENV: str = "development"
     
-    # Mode Configuration: "demo", "tribe_v2", or "huggingface"
+    # Mode Configuration: "demo", "tribev2", "tribe_v2", or "huggingface"
     MODEL_PROVIDER: str = "demo"
 
-    # TRIBE v2 settings (used when MODEL_PROVIDER=tribe_v2)
+    # TRIBE v2 settings
     TRIBE_MODEL_ID: str = "facebook/tribev2"
+    TRIBEV2_API_URL: str = ""
+    TRIBEV2_API_TOKEN: str = ""
+    TRIBEV2_LOCAL_REPO_PATH: str = "C:/Users/shanj/Downloads/Personal/tribev2"
+    TRIBEV2_CACHE_DIR: str = "./cache"
 
     # External API Keys (optional in demo mode)
     HF_API_URL: str = ""
@@ -44,7 +48,7 @@ class Settings(BaseSettings):
     @field_validator("MODEL_PROVIDER", mode="before")
     @classmethod
     def validate_provider(cls, v: str) -> str:
-        allowed = ["demo", "tribe_v2", "huggingface"]
+        allowed = ["demo", "tribev2", "tribe_v2", "local_cv", "huggingface"]
         if v.lower() not in allowed:
             return "demo"
         return v.lower()
@@ -56,8 +60,13 @@ class Settings(BaseSettings):
         return self.MODEL_PROVIDER == "demo"
 
     @property
+    def is_tribev2_mode(self) -> bool:
+        return self.MODEL_PROVIDER == "tribev2"
+
+    @property
     def is_tribe_mode(self) -> bool:
-        return self.MODEL_PROVIDER == "tribe_v2"
+        # Keep compatibility for both naming conventions
+        return self.MODEL_PROVIDER in ["tribev2", "tribe_v2"]
 
     @property
     def is_huggingface_mode(self) -> bool:
@@ -71,18 +80,38 @@ class Settings(BaseSettings):
         warnings = []
         
         # 1. Check Model Provider
-        if self.is_tribe_mode:
+        if self.is_tribev2_mode:
+            from importlib.util import find_spec
+            has_tribe_pkg = find_spec("tribev2") is not None
+            if not has_tribe_pkg:
+                if not os.path.exists(self.TRIBEV2_LOCAL_REPO_PATH):
+                    warnings.append(
+                        f"MODEL_PROVIDER=tribev2 but 'tribev2' package is not installed "
+                        f"and TRIBEV2_LOCAL_REPO_PATH ({self.TRIBEV2_LOCAL_REPO_PATH}) does not exist."
+                    )
+                else:
+                    warnings.append(
+                        f"MODEL_PROVIDER=tribev2 but 'tribev2' package is not installed. "
+                        f"Will attempt to load from {self.TRIBEV2_LOCAL_REPO_PATH}."
+                    )
+        
+        if self.MODEL_PROVIDER == "tribe_v2":
             from importlib.util import find_spec
             has_tribe_pkg = find_spec("tribev2") is not None
             if not has_tribe_pkg and (not self.HF_API_URL or not self.HF_API_TOKEN):
                 warnings.append(
                     "MODEL_PROVIDER=tribe_v2 but neither the tribe_v2 package is installed "
                     "nor HF_API_URL/HF_API_TOKEN are configured. "
-                    "Install tribe-v2 or set HF endpoint credentials."
                 )
         if self.is_huggingface_mode:
             if not self.HF_API_URL or not self.HF_API_TOKEN:
                 warnings.append("MODEL_PROVIDER is set to 'huggingface' but HF_API_URL or HF_API_TOKEN is missing.")
+        
+        if self.MODEL_PROVIDER == "local_cv":
+            from importlib.util import find_spec
+            has_cv = find_spec("cv2") is not None or find_spec("imageio") is not None
+            if not has_cv:
+                warnings.append("MODEL_PROVIDER=local_cv but opencv or imageio are not installed.")
         
         # 2. Check Gemini
         if not self.GEMINI_API_KEY:

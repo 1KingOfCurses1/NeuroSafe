@@ -6,7 +6,6 @@ from app.core.config import settings
 from app.services.job_store import job_store
 from app.schemas.jobs import JobStatus
 from app.schemas.analysis import AnalysisResult
-from app.adapters import demo_model_adapter, tribe_v2_adapter
 from app.services.danger_scoring import danger_scoring_service
 from app.services.result_formatter import result_formatter
 from app.services.gemini_service import gemini_report_service
@@ -43,13 +42,28 @@ class AnalysisOrchestrator:
             logger.info(f"Job {job_id}: Metadata extracted successfully ({metadata.duration_seconds}s, {metadata.resolution})")
             await asyncio.sleep(0.1) # Brief yield for UI
 
+            # Lazy imports to avoid circular dependency
+            from app.adapters import demo_model_adapter, tribe_v2_adapter, local_cv_adapter
+
             # 2. Stage: Running Model Inference (40%)
-            if settings.is_tribe_mode:
-                inference_label = "TRIBE v2 cortical encoding model"
-                adapter = tribe_v2_adapter
+            if settings.MODEL_PROVIDER == "local_cv":
+                inference_label = "Local CV Risk Analyzer"
+                primary_adapter = local_cv_adapter
+            elif settings.is_tribev2_mode:
+                inference_label = "TRIBE v2 Local Repo Path"
+                primary_adapter = tribe_v2_adapter
+            elif settings.MODEL_PROVIDER == "tribe_v2":
+                # Legacy or alternate naming
+                from app.adapters.tribe_adapter import tribe_v2_adapter as legacy_tribe_adapter
+                inference_label = "TRIBE v2 Legacy/HF Adapter"
+                primary_adapter = legacy_tribe_adapter
+            elif settings.is_huggingface_mode:
+                from app.adapters import huggingface_model_adapter
+                inference_label = "HuggingFace Inference Endpoint"
+                primary_adapter = huggingface_model_adapter
             else:
                 inference_label = "demo deterministic adapter"
-                adapter = demo_model_adapter
+                primary_adapter = demo_model_adapter
 
             job_store.update_job(
                 job_id,
@@ -57,19 +71,50 @@ class AnalysisOrchestrator:
                 progress=40,
                 message=f"Running {inference_label} on visual cortex (V1-V4, MT+)..."
             )
-            logger.info(f"Job {job_id}: Running inference via {adapter.provider_name}...")
-            raw_output = await adapter.analyze_video(path_to_extract, job_id=job_id)
-            logger.info(f"Job {job_id}: Model inference complete.")
-            await asyncio.sleep(0.1)
+            
+            fallback_used = False
+            fallback_reason = None
+            inference_source = "demo_primary"
+            
+            try:
+                logger.info(f"Job {job_id}: Attempting inference via {primary_adapter.__class__.__name__} ({primary_adapter.provider_name})")
+                raw_output = await primary_adapter.analyze_video(path_to_extract, job_id=job_id)
+                
+                if primary_adapter.provider_name == "local_cv":
+                    inference_source = "local_cv"
+                elif primary_adapter.provider_name == "tribev2":
+                    inference_source = "local_tribev2"
+                elif primary_adapter.provider_name == "huggingface":
+                    inference_source = "hf_endpoint"
+            except Exception as e:
+                if primary_adapter.provider_name == "demo":
+                    raise e
+                
+                # CRITICAL: Clear logging for fallback as requested by user
+                fallback_used = True
+                fallback_reason = str(e)
+                inference_source = "demo_fallback"
+                
+                logger.warning(f"!!! FALLBACK DETECTED !!! Job {job_id}: Primary adapter {primary_adapter.provider_name} FAILED with error: {str(e)}")
+                logger.warning(f"Job {job_id}: Falling back to DemoModelAdapter for safety.")
+                
+                job_store.update_job(
+                    job_id,
+                    message=f"Warning: Real model failed ({e}). Falling back to demo mode."
+                )
+                raw_output = await demo_model_adapter.analyze_video(path_to_extract, job_id=job_id)
+                logger.info(f"Job {job_id}: Fallback inference completed via DemoModelAdapter.")
 
-            # 3. Stage: Scoring Danger (65%)
-            job_store.update_job(
-                job_id, 
-                status=JobStatus.SCORING_DANGER, 
-                progress=65, 
-                message="Calculating seizure risk scores and detecting danger segments..."
-            )
-            logger.info(f"Job {job_id}: Scoring model output...")
+            # Attach provenance to raw_output metadata for the formatter
+            raw_output.metadata["provenance"] = {
+                "model_provider": raw_output.model_provider,
+                "model_name": raw_output.model_name,
+                "inference_source": inference_source,
+                "fallback_used": fallback_used,
+                "fallback_reason": fallback_reason
+            }
+
+            logger.info(f"Job {job_id}: Model inference stage complete.")
             score, summary, danger_segments = danger_scoring_service.score_model_output(raw_output, job_id=job_id)
             logger.info(f"Job {job_id}: Scoring complete (Score: {score}, Severity: {summary.severity})")
             await asyncio.sleep(0.1)

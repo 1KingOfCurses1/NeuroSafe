@@ -9,6 +9,7 @@ from app.schemas.analysis import (
     AnalysisSummary,
     DangerSegment,
     RoiTimeSeries,
+    ModelProvenance,
 )
 from app.schemas.reports import GeminiReport
 from app.schemas.visualization import BrainFrame, BrainVisualizationPayload
@@ -116,6 +117,16 @@ class ResultFormatter:
             timestamp_unit="seconds",
         )
 
+        # 5. Model Provenance
+        prov_data = model_output.metadata.get("provenance", {})
+        provenance = ModelProvenance(
+            model_provider=prov_data.get("model_provider", model_output.model_provider),
+            model_name=prov_data.get("model_name", model_output.model_name),
+            inference_source=prov_data.get("inference_source", "unknown"),
+            fallback_used=prov_data.get("fallback_used", False),
+            fallback_reason=prov_data.get("fallback_reason")
+        )
+
         result = AnalysisResult(
             job_id=job_id,
             status=JobStatus.COMPLETED,
@@ -125,7 +136,8 @@ class ResultFormatter:
             danger_segments=danger_segments,
             roi_timeseries=roi_ts,
             gemini_report=report,
-            brain_visualization=visualization
+            brain_visualization=visualization,
+            provenance=provenance
         )
         logger.info(f"Job {job_id}: Result payload synchronized and formatted.")
         return result
