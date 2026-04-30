@@ -144,9 +144,10 @@ class TRIBEv2Adapter(BaseModelAdapter):
                 _TribeModel.from_pretrained,
                 self.model_name,
                 cache_folder="./cache",
+                config_update={"data.text_feature.model_name": "unsloth/Llama-3.2-3B-Instruct"}
             )
             if use_gpu:
-                model = model.half().cuda()
+                # model = model.half().cuda()
                 logger.info(f"Job {job_id}: Model loaded on GPU in float16.")
             else:
                 logger.warning(
@@ -171,7 +172,7 @@ class TRIBEv2Adapter(BaseModelAdapter):
         # Run prediction — use autocast for FP16 on GPU
         logger.info(f"Job {job_id}: Running model.predict() on {device_label}...")
         if use_gpu:
-            with torch.cuda.amp.autocast(dtype=torch.float16):
+            with torch.amp.autocast('cuda', dtype=torch.float16):
                 preds_raw, _segments = await asyncio.to_thread(
                     model.predict, events=df
                 )
