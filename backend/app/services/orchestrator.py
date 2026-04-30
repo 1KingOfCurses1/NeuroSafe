@@ -11,6 +11,7 @@ from app.services.danger_scoring import danger_scoring_service
 from app.services.result_formatter import result_formatter
 from app.services.gemini_service import gemini_report_service
 from app.services.video_metadata import video_metadata_service
+from app.services.flash_detector import flash_detector_service
 
 logger = logging.getLogger(__name__)
 
@@ -55,11 +56,17 @@ class AnalysisOrchestrator:
                 job_id,
                 status=JobStatus.RUNNING_MODEL,
                 progress=40,
-                message=f"Running {inference_label} on visual cortex (V1-V4, MT+)..."
+                message=f"Running {inference_label} and high-frequency flash detection..."
             )
-            logger.info(f"Job {job_id}: Running inference via {adapter.provider_name}...")
-            raw_output = await adapter.analyze_video(path_to_extract, job_id=job_id)
-            logger.info(f"Job {job_id}: Model inference complete.")
+            logger.info(f"Job {job_id}: Running inference via {adapter.provider_name} and flash detection...")
+            
+            # Run BOLD fMRI prediction and Flash detection concurrently
+            raw_output, flash_segments = await asyncio.gather(
+                adapter.analyze_video(path_to_extract, job_id=job_id),
+                asyncio.to_thread(flash_detector_service.analyze_video, path_to_extract)
+            )
+            
+            logger.info(f"Job {job_id}: Model inference and flash detection complete.")
             await asyncio.sleep(0.1)
 
             # 3. Stage: Scoring Danger (65%)
@@ -70,7 +77,11 @@ class AnalysisOrchestrator:
                 message="Calculating seizure risk scores and detecting danger segments..."
             )
             logger.info(f"Job {job_id}: Scoring model output...")
-            score, summary, danger_segments = danger_scoring_service.score_model_output(raw_output, job_id=job_id)
+            score, summary, danger_segments = danger_scoring_service.score_model_output(
+                raw_output, 
+                job_id=job_id, 
+                flash_segments=flash_segments
+            )
             logger.info(f"Job {job_id}: Scoring complete (Score: {score}, Severity: {summary.severity})")
             await asyncio.sleep(0.1)
 

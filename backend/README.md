@@ -10,17 +10,13 @@ The NeuroSafe backend is a FastAPI integration layer designed to orchestrate vid
 
 ## Quick Start (Windows Friendly)
 
-1. **Setup Environment**:
-   ```powershell
-   cd backend
-   py -m venv .venv
-   .venv\Scripts\activate
-   ```
-   *(If `py` is not found, use `python`)*
+1. **Setup Conda Environment** (Required for GPU compatibility):
+   The application requires system-level `ffmpeg` and a specific PyTorch build (`cu128`) to support modern GPUs like the RTX PRO 6000 Blackwell.
 
-2. **Install Dependencies**:
-   ```powershell
-   pip install -r requirements.txt
+   ```bash
+   cd backend
+   conda env create -f environment.yml
+   conda activate neurosafe
    ```
 
 3. **Configure**:

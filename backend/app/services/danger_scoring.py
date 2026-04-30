@@ -17,8 +17,12 @@ class DangerScoringService:
     def score_model_output(
         self, 
         output: RawModelOutput,
-        job_id: str = "unknown"
+        job_id: str = "unknown",
+        flash_segments: List[DangerSegment] = None
     ) -> Tuple[int, AnalysisSummary, List[DangerSegment]]:
+        if flash_segments is None:
+            flash_segments = []
+
         if not output.timestamps:
             return 0, AnalysisSummary(severity="low", segments_detected=0, total_danger_duration_seconds=0), []
 
@@ -28,6 +32,9 @@ class DangerScoringService:
                 raise ValueError(f"ROI {roi} activation length ({len(activations)}) does not match timestamp length ({len(output.timestamps)})")
 
         segments = self._detect_segments(output)
+        
+        # Combine BOLD segments with explicit flash segments
+        segments.extend(flash_segments)
         
         # Calculate overall metrics
         total_segments = len(segments)
@@ -39,6 +46,10 @@ class DangerScoringService:
 
         # Formula: score = min(100, int((max_activation / 3.2) * 70 + min(total_segments, 5) * 5 + min(total_duration, 10) * 1.5))
         score = min(100, int((max_activation / 3.2) * 70 + min(total_segments, 5) * 5 + min(total_duration, 10) * 1.5))
+
+        # Explicit flash override
+        if flash_segments:
+            score = 100
 
         # Severity
         if score < 30:
