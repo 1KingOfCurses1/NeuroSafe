@@ -1,12 +1,13 @@
 import asyncio
 import logging
 import os
-from typing import Optional
+from pathlib import Path
+from typing import Optional, Tuple
 from app.core.config import settings
 from app.services.job_store import job_store
 from app.schemas.jobs import JobStatus
 from app.schemas.analysis import AnalysisResult
-from app.adapters import demo_model_adapter, tribe_v2_adapter
+from app.adapters import BaseModelAdapter, demo_model_adapter, tribe_v2_adapter
 from app.services.danger_scoring import danger_scoring_service
 from app.services.result_formatter import result_formatter
 from app.services.gemini_service import gemini_report_service
@@ -20,6 +21,53 @@ class AnalysisOrchestrator:
     specialized services for metadata extraction, model inference, 
     risk scoring, and report generation.
     """
+
+    def _select_adapter(self) -> Tuple[BaseModelAdapter, Optional[str]]:
+        """
+        Select the best available adapter for the current runtime config.
+        Falls back to the demo adapter when an advanced provider is unavailable.
+        """
+        if settings.is_demo_mode:
+            return demo_model_adapter, None
+
+        if settings.is_tribe_mode:
+            if tribe_v2_adapter.is_available():
+                return tribe_v2_adapter, None
+            return (
+                demo_model_adapter,
+                "TRIBE v2 is not configured in this environment. Falling back to demo analysis.",
+            )
+
+        if settings.is_huggingface_mode:
+            return (
+                demo_model_adapter,
+                "Hugging Face inference is not implemented in this build. Falling back to demo analysis.",
+            )
+
+        return demo_model_adapter, "Unknown model provider configured. Falling back to demo analysis."
+
+    def _cleanup_artifacts(self, video_path: Optional[str], job_id: str) -> None:
+        """
+        Best-effort cleanup for per-job media artifacts generated during analysis.
+        Keeps the workspace from accumulating uploaded videos, extracted audio,
+        and transcription sidecar files across runs.
+        """
+        if not video_path:
+            return
+
+        path = Path(video_path)
+        candidates = {path}
+        candidates.update(path.parent.glob(f"{path.stem}.*"))
+
+        for candidate in candidates:
+            try:
+                if candidate.exists() and candidate.is_file():
+                    candidate.unlink()
+                    logger.info(f"Job {job_id}: Removed artifact {candidate}")
+            except Exception as exc:
+                logger.warning(
+                    f"Job {job_id}: Failed to remove artifact {candidate}: {exc}"
+                )
 
     async def run_demo_analysis(self, job_id: str, video_path: Optional[str] = None) -> AnalysisResult:
         """
@@ -44,12 +92,15 @@ class AnalysisOrchestrator:
             await asyncio.sleep(0.1) # Brief yield for UI
 
             # 2. Stage: Running Model Inference (40%)
-            if settings.is_tribe_mode:
+            adapter, fallback_message = self._select_adapter()
+            if fallback_message:
+                logger.warning(f"Job {job_id}: {fallback_message}")
+                job_store.update_job(job_id, message=fallback_message)
+
+            if adapter is tribe_v2_adapter:
                 inference_label = "TRIBE v2 cortical encoding model"
-                adapter = tribe_v2_adapter
             else:
-                inference_label = "demo deterministic adapter"
-                adapter = demo_model_adapter
+                inference_label = "demo flash-detection adapter"
 
             job_store.update_job(
                 job_id,
@@ -58,7 +109,24 @@ class AnalysisOrchestrator:
                 message=f"Running {inference_label} on visual cortex (V1-V4, MT+)..."
             )
             logger.info(f"Job {job_id}: Running inference via {adapter.provider_name}...")
-            raw_output = await adapter.analyze_video(path_to_extract, job_id=job_id)
+            try:
+                raw_output = await adapter.analyze_video(path_to_extract, job_id=job_id)
+            except Exception as exc:
+                if adapter is demo_model_adapter:
+                    raise
+
+                logger.warning(
+                    f"Job {job_id}: {adapter.provider_name} inference failed ({exc}). "
+                    "Falling back to demo adapter.",
+                    exc_info=True,
+                )
+                job_store.update_job(
+                    job_id,
+                    status=JobStatus.RUNNING_MODEL,
+                    progress=40,
+                    message="Advanced inference failed. Falling back to demo analysis.",
+                )
+                raw_output = await demo_model_adapter.analyze_video(path_to_extract, job_id=job_id)
             logger.info(f"Job {job_id}: Model inference complete.")
             await asyncio.sleep(0.1)
 
@@ -121,5 +189,7 @@ class AnalysisOrchestrator:
             logger.error(f"Analysis pipeline failed for job {job_id}: {str(e)}", exc_info=True)
             job_store.fail_job(job_id, error=str(e), message="Analysis failed during orchestration")
             raise e
+        finally:
+            self._cleanup_artifacts(video_path, job_id)
 
 analysis_orchestrator = AnalysisOrchestrator()

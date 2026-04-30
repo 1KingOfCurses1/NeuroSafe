@@ -87,6 +87,9 @@ class TRIBEv2Adapter(BaseModelAdapter):
     def model_name(self) -> str:
         return settings.TRIBE_MODEL_ID or "facebook/tribev2"
 
+    def is_available(self) -> bool:
+        return HAS_TRIBE_PACKAGE or bool(settings.HF_API_URL and settings.HF_API_TOKEN)
+
     async def analyze_video(
         self, video_path: str, job_id: Optional[str] = None
     ) -> RawModelOutput:

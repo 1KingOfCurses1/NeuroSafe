@@ -32,6 +32,32 @@ export function useAnalysisJob(jobId: string | null) {
   useEffect(() => {
     if (!jobId) return
 
+    let isActive = true
+
+    const syncJobState = async (status: JobStatus) => {
+      try {
+        const job = await fetchJob(jobId)
+        if (!isActive) return
+
+        setState(prev => ({
+          ...prev,
+          status,
+          progress: job.progress,
+          message: job.message,
+          result: job.result,
+          error: job.error,
+        }))
+      } catch (err) {
+        if (!isActive) return
+
+        setState(prev => ({
+          ...prev,
+          status: 'failed',
+          error: err instanceof Error ? err.message : 'Failed to load job state.',
+        }))
+      }
+    }
+
     const ws = new WebSocket(`${wsBase()}/ws/analyze/${jobId}`)
     wsRef.current = ws
 
@@ -46,19 +72,11 @@ export function useAnalysisJob(jobId: string | null) {
       }))
 
       if (data.status === 'completed') {
-        fetchJob(jobId)
-          .then(job => setState(prev => ({ ...prev, result: job.result })))
-          .catch(err =>
-            setState(prev => ({
-              ...prev,
-              status: 'failed',
-              error: err instanceof Error ? err.message : 'Failed to load results.',
-            }))
-          )
+        void syncJobState('completed')
       }
 
       if (data.status === 'failed') {
-        setState(prev => ({ ...prev, error: 'Analysis failed on the server.' }))
+        void syncJobState('failed')
       }
     }
 
@@ -71,6 +89,7 @@ export function useAnalysisJob(jobId: string | null) {
     }
 
     return () => {
+      isActive = false
       ws.close()
       wsRef.current = null
     }
