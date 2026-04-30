@@ -86,7 +86,7 @@ export function UploadZone({ onJobCreated }: UploadZoneProps) {
               className={`flex flex-col items-center justify-center gap-4 border-2 border-dashed rounded-2xl px-8 py-16 cursor-pointer transition-colors ${dragging ? 'border-clinical-teal bg-clinical-teal/10' : 'border-deep-navy hover:border-clinical-teal/50 bg-deep-navy/20'} ${submitting ? 'opacity-80 pointer-events-none' : ''}`}
             >
               {submitting ? (
-                <div className="flex items-end justify-center h-12 gap-1.5">
+                <div className="flex items-end justify-center h-10 gap-1.5">
                   <div className="eeg-bar"></div>
                   <div className="eeg-bar"></div>
                   <div className="eeg-bar"></div>
@@ -130,10 +130,10 @@ export function UploadZone({ onJobCreated }: UploadZoneProps) {
               >
                 {submitting ? (
                   <>
-                    <div className="flex items-end justify-center h-4 gap-1">
-                      <div className="eeg-bar !bg-near-black h-full"></div>
-                      <div className="eeg-bar !bg-near-black h-full" style={{ animationDelay: '0.1s' }}></div>
-                      <div className="eeg-bar !bg-near-black h-full" style={{ animationDelay: '0.2s' }}></div>
+                    <div className="flex items-end justify-center h-3 gap-1">
+                      <div className="eeg-bar !bg-near-black" style={{ height: '60%' }}></div>
+                      <div className="eeg-bar !bg-near-black" style={{ animationDelay: '0.1s', height: '100%' }}></div>
+                      <div className="eeg-bar !bg-near-black" style={{ animationDelay: '0.2s', height: '80%' }}></div>
                     </div>
                     Analyzing...
                   </>
