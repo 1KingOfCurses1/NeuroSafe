@@ -2,7 +2,7 @@ import logging
 import os
 from typing import List, Union, Any, Dict
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic import Field, field_validator
+from pydantic import field_validator
 
 # Setup basic logging
 logging.basicConfig(level=logging.INFO)
@@ -24,6 +24,12 @@ class Settings(BaseSettings):
     
     # Local Storage
     UPLOAD_DIR: str = "./uploads"
+    RUNTIME_TEMP_DIR: str = "./uploads/.tmp"
+    CLEANUP_ON_STARTUP: bool = True
+    CLEANUP_ON_SHUTDOWN: bool = True
+    CLEANUP_EXTERNAL_CACHES: bool = True
+    HUGGINGFACE_CACHE_DIR: str = "~/.cache/huggingface"
+    UV_CACHE_DIR: str = "~/AppData/Local/uv/cache"
     
     # CORS Configuration
     ALLOWED_ORIGINS: Union[List[str], str] = [
@@ -106,6 +112,7 @@ class Settings(BaseSettings):
             "huggingface_configured": bool(self.HF_API_URL and self.HF_API_TOKEN),
             "gemini_configured": bool(self.GEMINI_API_KEY),
             "upload_dir": self.UPLOAD_DIR,
+            "runtime_temp_dir": self.RUNTIME_TEMP_DIR,
             "warnings": warnings
         }
 

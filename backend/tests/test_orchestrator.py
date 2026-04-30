@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+
 from app.services.orchestrator import analysis_orchestrator
 from app.adapters import demo_model_adapter, tribe_v2_adapter
 from app.core.config import settings
@@ -26,7 +28,8 @@ def test_select_adapter_uses_tribe_when_available(monkeypatch):
     assert message is None
 
 
-def test_cleanup_artifacts_removes_video_and_sidecars(tmp_path):
+@pytest.mark.asyncio
+async def test_cleanup_artifacts_removes_video_and_sidecars(tmp_path):
     video_path = tmp_path / "job_123_youtube.mp4"
     wav_path = tmp_path / "job_123_youtube.wav"
     tsv_path = tmp_path / "job_123_youtube.tsv"
@@ -35,7 +38,7 @@ def test_cleanup_artifacts_removes_video_and_sidecars(tmp_path):
     for path in (video_path, wav_path, tsv_path, unrelated_path):
         path.write_text("x", encoding="utf-8")
 
-    analysis_orchestrator._cleanup_artifacts(str(video_path), "job_123")
+    await analysis_orchestrator._cleanup_artifacts(str(video_path), "job_123")
 
     assert not video_path.exists()
     assert not wav_path.exists()

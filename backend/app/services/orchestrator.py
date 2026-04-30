@@ -46,7 +46,7 @@ class AnalysisOrchestrator:
 
         return demo_model_adapter, "Unknown model provider configured. Falling back to demo analysis."
 
-    def _cleanup_artifacts(self, video_path: Optional[str], job_id: str) -> None:
+    async def _cleanup_artifacts(self, video_path: Optional[str], job_id: str) -> None:
         """
         Best-effort cleanup for per-job media artifacts generated during analysis.
         Keeps the workspace from accumulating uploaded videos, extracted audio,
@@ -60,14 +60,24 @@ class AnalysisOrchestrator:
         candidates.update(path.parent.glob(f"{path.stem}.*"))
 
         for candidate in candidates:
-            try:
-                if candidate.exists() and candidate.is_file():
-                    candidate.unlink()
-                    logger.info(f"Job {job_id}: Removed artifact {candidate}")
-            except Exception as exc:
-                logger.warning(
-                    f"Job {job_id}: Failed to remove artifact {candidate}: {exc}"
-                )
+            for attempt in range(3):
+                try:
+                    if candidate.exists() and candidate.is_file():
+                        candidate.unlink()
+                        logger.info(f"Job {job_id}: Removed artifact {candidate}")
+                    break
+                except PermissionError as exc:
+                    if attempt == 2:
+                        logger.warning(
+                            f"Job {job_id}: Failed to remove artifact {candidate}: {exc}"
+                        )
+                    else:
+                        await asyncio.sleep(0.5)
+                except Exception as exc:
+                    logger.warning(
+                        f"Job {job_id}: Failed to remove artifact {candidate}: {exc}"
+                    )
+                    break
 
     async def run_demo_analysis(self, job_id: str, video_path: Optional[str] = None) -> AnalysisResult:
         """
@@ -111,6 +121,24 @@ class AnalysisOrchestrator:
             logger.info(f"Job {job_id}: Running inference via {adapter.provider_name}...")
             try:
                 raw_output = await adapter.analyze_video(path_to_extract, job_id=job_id)
+            except SystemExit as exc:
+                if adapter is demo_model_adapter:
+                    raise RuntimeError(
+                        f"Demo inference aborted unexpectedly: exit code {exc.code}"
+                    ) from exc
+
+                logger.warning(
+                    f"Job {job_id}: {adapter.provider_name} triggered SystemExit ({exc.code}). "
+                    "Falling back to demo adapter.",
+                    exc_info=True,
+                )
+                job_store.update_job(
+                    job_id,
+                    status=JobStatus.RUNNING_MODEL,
+                    progress=40,
+                    message="Advanced inference aborted during dependency setup. Falling back to demo analysis.",
+                )
+                raw_output = await demo_model_adapter.analyze_video(path_to_extract, job_id=job_id)
             except Exception as exc:
                 if adapter is demo_model_adapter:
                     raise
@@ -190,6 +218,6 @@ class AnalysisOrchestrator:
             job_store.fail_job(job_id, error=str(e), message="Analysis failed during orchestration")
             raise e
         finally:
-            self._cleanup_artifacts(video_path, job_id)
+            await self._cleanup_artifacts(video_path, job_id)
 
 analysis_orchestrator = AnalysisOrchestrator()

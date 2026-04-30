@@ -16,15 +16,39 @@
 
 body {
   margin: 0;
-  background-color: var(--color-near-black);
-  color: var(--color-soft-white);
-  font-family: 'Inter', 'Roboto', system-ui, sans-serif;
+  background-color: #000000;
+  color: #F5F7FA;
+  font-family: 'Inter', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+code, pre, .font-mono {
+  font-family: 'JetBrains Mono', monospace !important;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #000000;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #27272a;
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #3f3f46;
 }
 
 /* EEG Animation for Upload Zone */
 @keyframes eeg-pulse {
   0% { transform: scaleY(1); opacity: 0.3; }
-  50% { transform: scaleY(2); opacity: 1; }
+  50% { transform: scaleY(1.8); opacity: 1; }
   100% { transform: scaleY(1); opacity: 0.3; }
 }
 
@@ -32,18 +56,19 @@ body {
   animation: eeg-pulse 1.2s infinite ease-in-out;
   transform-origin: center bottom;
   width: 4px;
-  background-color: var(--color-clinical-teal);
+  background-color: #00A99D;
   border-radius: 2px;
 }
 
-.eeg-bar:nth-child(1) { animation-delay: 0.0s; height: 8px; }
-.eeg-bar:nth-child(2) { animation-delay: 0.1s; height: 16px; }
-.eeg-bar:nth-child(3) { animation-delay: 0.2s; height: 12px; }
-.eeg-bar:nth-child(4) { animation-delay: 0.3s; height: 20px; }
-.eeg-bar:nth-child(5) { animation-delay: 0.4s; height: 8px; }
-
-/* Micro-animations */
+/* Smooth Transitions */
 .transition-all {
-  transition-duration: 200ms;
+  transition-duration: 250ms;
   transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.glass {
+  background: rgba(10, 10, 11, 0.8);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
 }

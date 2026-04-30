@@ -1,12 +1,21 @@
 import logging
+import os
+
 from fastapi import FastAPI, Request, status
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from fastapi.exceptions import RequestValidationError
-from app.api.routes import health, analysis, websocket
+from fastapi.staticfiles import StaticFiles
+
+from app.api.routes import analysis, health, websocket
 from app.core.config import settings
 from app.core.exceptions import NeuroSafeError
 from app.schemas.errors import ErrorResponse
+from app.services.runtime_cleanup import (
+    cleanup_upload_artifacts,
+    configure_temp_environment,
+    ensure_runtime_directories,
+)
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -30,9 +39,12 @@ app.add_middleware(
 @app.on_event("startup")
 async def startup_event():
     """
-    Validate environment and log configuration on startup.
+    Validate environment, configure a stable temp dir, and clean stale artifacts.
     """
     config_summary = settings.validate_runtime_config()
+    ensure_runtime_directories(settings.UPLOAD_DIR, settings.RUNTIME_TEMP_DIR)
+    runtime_temp_dir = configure_temp_environment(settings.RUNTIME_TEMP_DIR)
+    removed = cleanup_upload_artifacts(settings.UPLOAD_DIR) if settings.CLEANUP_ON_STARTUP else 0
     
     logger.info("=" * 50)
     logger.info(f"🚀 NeuroSafe Backend Starting...")
@@ -47,6 +59,13 @@ async def startup_event():
     else:
         logger.info("✅ Configuration valid and ready.")
     logger.info("=" * 50)
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    if settings.CLEANUP_ON_SHUTDOWN:
+        removed = cleanup_upload_artifacts(settings.UPLOAD_DIR)
+        logger.info("Shutdown cleanup removed %s runtime artifact(s).", removed)
+
 
 # --- Exception Handlers ---
 
@@ -97,9 +116,6 @@ async def generic_exception_handler(request: Request, exc: Exception):
 
 # --- Routes ---
 
-from fastapi.staticfiles import StaticFiles
-
-import os
 os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
 app.mount("/video", StaticFiles(directory=settings.UPLOAD_DIR), name="video")
 

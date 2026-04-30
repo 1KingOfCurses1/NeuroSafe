@@ -129,18 +129,39 @@ export function ResultsPage({ result, onReset }: ResultsPageProps) {
           
           {/* Right Column: Brain & Timeline */}
           <div className="lg:col-span-7 space-y-6">
-            {brain_visualization && brain_visualization.frames.some(f => f.image_b64) ? (
+            {brain_visualization && brain_visualization.frames.length > 0 ? (
               <Card title="3D Cortical Activation Map — TRIBE v2">
                 <BrainViewer visualization={brain_visualization} currentTime={currentTime} />
               </Card>
             ) : (
-              <Card title="3D Cortical Activation Map">
-                <div className="h-[250px] flex flex-col items-center justify-center text-soft-white/30 space-y-3">
-                  <svg className="w-8 h-8 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <span className="text-xs tracking-widest uppercase font-mono">Visualization Offline</span>
-                </div>
+              <Card title="3D Cortical Activation Map — TRIBE v2">
+                <BrainViewer
+                  visualization={{
+                    job_id: result.job_id,
+                    frames: roi_timeseries.timestamps.map((t, i) => ({
+                      timestamp: t,
+                      roi_activations: {
+                        V1: roi_timeseries.V1[i] ?? 0,
+                        V2: roi_timeseries.V2[i] ?? 0,
+                        V3: roi_timeseries.V3[i] ?? 0,
+                        V4: roi_timeseries.V4[i] ?? 0,
+                        'MT+': roi_timeseries['MT+'][i] ?? 0,
+                      },
+                      max_activation: Math.max(
+                        roi_timeseries.V1[i] ?? 0,
+                        roi_timeseries.V2[i] ?? 0,
+                        roi_timeseries.V3[i] ?? 0,
+                        roi_timeseries.V4[i] ?? 0,
+                        roi_timeseries['MT+'][i] ?? 0,
+                      ),
+                      danger_level: 'low',
+                      image_b64: null,
+                    })),
+                    color_map: 'hot',
+                    timestamp_unit: 'seconds',
+                  }}
+                  currentTime={currentTime}
+                />
               </Card>
             )}
             <Card title="Cortical ROI Time Series">

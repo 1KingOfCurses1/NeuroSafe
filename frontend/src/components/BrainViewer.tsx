@@ -1,13 +1,54 @@
 import { useState } from 'react'
 import type { BrainVisualizationPayload } from '../types'
+import { Brain3D } from './Brain3D'
 
 interface BrainViewerProps {
   visualization: BrainVisualizationPayload
   currentTime: number
 }
 
+type ViewMode = 'true' | 'predicted'
+type SurfaceMode = 'normal' | 'inflated'
+type HemiMode = 'open' | 'close'
+
+/** Small pill-shaped toggle button matching TRIBE v2 demo aesthetic */
+function ToggleButton({
+  label,
+  active,
+  onClick,
+}: {
+  label: string
+  active: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        padding: '5px 14px',
+        fontSize: '11px',
+        fontWeight: 600,
+        fontFamily: 'monospace',
+        borderRadius: '4px',
+        border: active ? '1px solid rgba(255,255,255,0.5)' : '1px solid rgba(255,255,255,0.12)',
+        background: active ? 'rgba(255,255,255,0.1)' : 'transparent',
+        color: active ? '#fff' : 'rgba(255,255,255,0.4)',
+        cursor: 'pointer',
+        transition: 'all 0.2s ease',
+        letterSpacing: '0.02em',
+      }}
+    >
+      {label}
+    </button>
+  )
+}
+
 export function BrainViewer({ visualization, currentTime }: BrainViewerProps) {
-  const frames = visualization.frames.filter(f => f.image_b64)
+  const [viewMode, setViewMode] = useState<ViewMode>('predicted')
+  const [surfaceMode, setSurfaceMode] = useState<SurfaceMode>('normal')
+  const [hemiMode, setHemiMode] = useState<HemiMode>('close')
+
+  const frames = visualization.frames
 
   if (frames.length === 0) {
     return (
@@ -30,29 +71,71 @@ export function BrainViewer({ visualization, currentTime }: BrainViewerProps) {
 
   const frame = closestFrame
 
-  function fmt(s: number) {
-    const m = Math.floor(s / 60)
-    const sec = (s % 60).toFixed(1).padStart(4, '0')
-    return `${m}:${sec}`
-  }
+  // For "True" mode, show a baseline frame (low activation)
+  const displayFrame = viewMode === 'true'
+    ? { ...frame, max_activation: 0.05, roi_activations: {} }
+    : frame
 
   return (
-    <div className="space-y-3">
-      <div className="relative rounded-xl overflow-hidden bg-[#080818]">
-        <img
-          src={`data:image/png;base64,${frame.image_b64}`}
-          alt={`Brain at ${fmt(frame.timestamp)}`}
-          className="w-full object-contain max-h-64"
-        />
-        <div className="absolute top-2 right-2 text-xs font-mono bg-black/60 text-slate-300 px-2 py-0.5 rounded">
-          t = {fmt(frame.timestamp)}s
-        </div>
-      </div>
+    <div className="space-y-0">
+      {/* 3D Brain Canvas */}
+      <Brain3D
+        frame={displayFrame}
+        surfaceMode={surfaceMode}
+        hemiMode={hemiMode}
+      />
 
-      <div className="flex justify-between text-xs text-slate-500 font-mono">
-        <span>{fmt(frames[0].timestamp)}s</span>
-        <span>{frames.length} frames</span>
-        <span>{fmt(frames[frames.length - 1].timestamp)}s</span>
+      {/* TRIBE v2-style control bar */}
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '12px',
+          padding: '16px 20px',
+          background: 'rgba(0,0,0,0.6)',
+          borderBottomLeftRadius: '12px',
+          borderBottomRightRadius: '12px',
+          borderTop: '1px solid rgba(255,255,255,0.04)',
+        }}
+      >
+        {/* Row 1: View mode + Hemi + Surface */}
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+          {/* View Mode: True / Compare / Predicted */}
+          <ToggleButton label="True" active={viewMode === 'true'} onClick={() => setViewMode('true')} />
+          <ToggleButton label="Predicted" active={viewMode === 'predicted'} onClick={() => setViewMode('predicted')} />
+
+          {/* Spacer */}
+          <div style={{ width: '1px', height: '20px', background: 'rgba(255,255,255,0.08)', margin: '0 4px' }} />
+
+          {/* Hemisphere: Open / Close */}
+          <ToggleButton label="Open" active={hemiMode === 'open'} onClick={() => setHemiMode('open')} />
+          <ToggleButton label="Close" active={hemiMode === 'close'} onClick={() => setHemiMode('close')} />
+
+          {/* Spacer */}
+          <div style={{ width: '1px', height: '20px', background: 'rgba(255,255,255,0.08)', margin: '0 4px' }} />
+
+          {/* Surface: Normal / Inflated */}
+          <ToggleButton label="Normal" active={surfaceMode === 'normal'} onClick={() => setSurfaceMode('normal')} />
+          <ToggleButton label="Inflated" active={surfaceMode === 'inflated'} onClick={() => setSurfaceMode('inflated')} />
+        </div>
+
+        {/* Row 2: Frame info */}
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          fontSize: '10px',
+          fontFamily: 'monospace',
+          color: 'rgba(255,255,255,0.25)',
+          letterSpacing: '0.1em',
+          textTransform: 'uppercase',
+        }}>
+          <span>t = {frame.timestamp.toFixed(1)}s</span>
+          <span>{frames.length} frames · fsaverage5</span>
+          <span>
+            Peak: {(frame.max_activation * 100).toFixed(0)}%
+          </span>
+        </div>
       </div>
     </div>
   )
